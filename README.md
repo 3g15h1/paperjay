@@ -29,7 +29,8 @@ runs on your own hardware.
   next documents from that company are filed the same way.
 - **Answers questions** with citations. Many need no AI at all: *show me…* lists, totals added up in code,
   and single facts (*"my policy number?"*) from what was read when the document arrived. If a word appears
-  in no document, it says so instead of guessing.
+  in no document, it says so instead of guessing. The same box finds things: as you type it
+  suggests matching companies, people, numbers and documents.
 - **Scans with your phone's camera**: the page is outlined live and the photo taken when you hold still,
   page after page, then cut out, straightened and cleaned up into one PDF.
 - **Collects emailed documents**: checks your mailboxes every night and adds the PDFs and photos attached

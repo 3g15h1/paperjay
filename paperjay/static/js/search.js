@@ -1,9 +1,11 @@
-// Header search (spec C.3): type two letters and the library's vocabulary answers —
+// Search (spec C.3): type two letters and the library's vocabulary answers —
 // companies, people, topics, types, tags, numbers, paper numbers, years and matching
 // documents — from /api/suggest. Choosing one opens the library already filtered (or
-// the document itself); Enter runs a plain word search; a question-shaped input
-// offers "Ask PaperJay" first. ↑/↓ move, Enter picks, Esc closes. "/" focuses it.
-import { $, el, esc, api } from "./core.js";
+// the document itself). The same picker sits under the Ask box (home.js), where Enter
+// asks the question; in the desktop sidebar Enter runs a plain word search and a
+// question-shaped input offers "Ask PaperJay" first. ↑/↓ move, Enter picks, Esc closes.
+// "/" focuses the box (on a phone it opens Ask, the one search box there).
+import { $, el, esc, api, go } from "./core.js";
 
 const KIND_LABEL = { company: "Companies", person: "People", topic: "Topics", type: "Types",
                      tag: "Tags", number: "Numbers", paper: "Paper numbers", year: "Years",
@@ -21,14 +23,18 @@ function target(item, kind) {
   return "/library?term=" + encodeURIComponent(kind + ":" + item.id);  // number / person
 }
 
-function attach(input, box) {
+// opts.onEnter: called for Enter when no suggestion is picked (default: word search in the
+// library). opts.enabled: return false to show nothing (e.g. while asking about one document).
+// With onEnter set, the box is quiet when nothing matches: Enter does the work there.
+export function attach(input, box, opts = {}) {
   let seq = 0, timer, rows = [], active = -1;
+  const inAsk = !!opts.onEnter;
   function close() { box.hidden = true; box.innerHTML = ""; rows = []; active = -1; }
   function mark() { rows.forEach((r, i) => r.classList.toggle("on", i === active)); }
   async function update() {
     const q = input.value.trim();
     const mine = ++seq;
-    if (q.length < 2) { close(); return; }
+    if (q.length < 2 || (opts.enabled && !opts.enabled())) { close(); return; }
     const data = await api("/api/suggest?q=" + encodeURIComponent(q)).catch(() => null);
     if (!data || mine !== seq) return;
     box.innerHTML = "";
@@ -40,7 +46,9 @@ function attach(input, box) {
       rows.push(b);
       box.append(b);
     };
-    if (QUESTION.test(q) || q.endsWith("?")) addRow(`Ask PaperJay: “${q}”`, "/?q=" + encodeURIComponent(q), null);
+    if (inAsk && !data.groups.length) { close(); return; }
+    if (inAsk) box.append(el(`<div class="sg-none">Pick one to open it, or press Enter to ask.</div>`));
+    if (!inAsk && (QUESTION.test(q) || q.endsWith("?"))) addRow(`Ask PaperJay: “${q}”`, "/?q=" + encodeURIComponent(q), null);
     for (const g of data.groups) {
       box.append(el(`<div class="sg-kind">${KIND_LABEL[g.kind] || g.kind}</div>`));
       for (const item of g.items) addRow(item.name, target(item, g.kind), item.count);
@@ -57,28 +65,28 @@ function attach(input, box) {
       e.preventDefault();
       active = (active + (e.key === "ArrowDown" ? 1 : -1) + rows.length) % rows.length;
       mark();
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       if (active >= 0 && rows[active]) { rows[active].click(); return; }
-      close();
-      location.href = "/library?q=" + encodeURIComponent(input.value.trim());
+      clearTimeout(timer); seq++; close();
+      if (opts.onEnter) opts.onEnter();
+      else location.href = "/library?q=" + encodeURIComponent(input.value.trim());
     } else if (e.key === "Escape") close();
   });
-  document.addEventListener("click", (e) => { if (!box.contains(e.target) && e.target !== input) close(); });
-  return { open: () => { box.hidden = false; }, focus: () => input.focus() };
+  const outside = (e) => { if (!box.contains(e.target) && e.target !== input) close(); };
+  document.addEventListener("click", outside);
+  return { close: () => { clearTimeout(timer); seq++; close(); }, focus: () => input.focus(),
+           detach: () => document.removeEventListener("click", outside) };
 }
 
 export function initSearch() {
   const desktop = attach($("#search-input"), $("#search-results"));
-  const overlay = $("#search-overlay");
-  const mobile = attach($("#m-search-input"), $("#m-search-results"));
-  $("#search-fab").onclick = () => { overlay.hidden = false; mobile.focus(); };
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.hidden = true; });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "/" && !/input|textarea|select/i.test(document.activeElement.tagName)) {
-      e.preventDefault();
-      if (innerWidth <= 820) $("#search-fab").click(); else desktop.focus();
-    }
-    if (e.key === "Escape") overlay.hidden = true;
+    if (e.key !== "/" || /input|textarea|select/i.test(document.activeElement.tagName)) return;
+    e.preventDefault();
+    const ask = document.querySelector("[data-searchbox]");
+    if (ask) ask.focus();
+    else if (innerWidth <= 820) go("/");
+    else desktop.focus();
   });
 }

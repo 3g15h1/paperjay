@@ -1,5 +1,7 @@
-// Home: ask a question (ported from Paperless Ask), what's coming up, what needs attention, recent documents.
+// Home: one box to find or ask (as you type it suggests companies, people, numbers and
+// documents from search.js; Enter asks), what's coming up, what needs attention, recent documents.
 import { $, $$, api, esc, icon, fmtDate, ago, money, plural, docCard, refreshCounts } from "./core.js";
+import { attach } from "./search.js";
 
 export const nav = "home";
 const HKEY = "pj-ask-history";
@@ -8,8 +10,9 @@ const PLACEHOLDERS = ["When does my car insurance expire?", "How much did I spen
 
 export async function show(view, { query }) {
   view.innerHTML = `<div class="page narrow">
-    <form class="askbox" id="askForm"><textarea id="q" rows="1" placeholder="${esc(PLACEHOLDERS[0])}" aria-label="Ask your documents"></textarea>
+    <div class="askwrap"><form class="askbox" id="askForm"><textarea id="q" rows="1" data-searchbox placeholder="${esc(PLACEHOLDERS[0])}" aria-label="Search or ask your documents"></textarea>
       <button class="btn primary" id="go" aria-label="Ask">${icon("send")}</button></form>
+      <div class="suggest" id="qSuggest" hidden></div></div>
     <div class="context" id="ctx" hidden><span id="ctxText"></span><button type="button" class="btn ghost sm" id="ctxClear">New topic</button></div>
     <div class="chips scroll" id="suggest" style="margin-top:10px"></div>
     <div id="result" hidden>
@@ -27,7 +30,8 @@ export async function show(view, { query }) {
         <div class="note-line" id="note" hidden></div>
         <form class="row" id="fbBox" hidden style="margin-top:10px"><input class="input" id="fbText" placeholder="What was wrong? (optional)" style="flex:1"><button class="btn sm">Send</button></form>
       </div>
-      <div class="section" id="sourcesWrap" hidden><div class="h"><h2>Sources</h2><span class="aside" id="meta"></span></div><div class="sources" id="sources"></div></div>
+      <div class="section" id="sourcesWrap" hidden><div class="h"><h2>Sources</h2><span class="aside" id="meta"></span></div><div class="sources" id="sources"></div>
+        <a class="btn ghost sm" id="allLink" hidden style="margin-top:10px">See every match in the Library</a></div>
     </div>
     <div id="home">
       <div class="section" id="upWrap" hidden><div class="h"><h2>Coming up</h2><a class="aside" href="/settings/account#calendar">${icon("calendar", "i")} Add to calendar</a></div>
@@ -49,7 +53,9 @@ export async function show(view, { query }) {
   els.suggest.onclick = (e) => { const c = e.target.closest("[data-q]"); if (c) { newTopic(); els.q.value = c.dataset.q; ask(c.dataset.q); } };
   const autosize = () => { els.q.style.height = "auto"; els.q.style.height = Math.min(els.q.scrollHeight + 2, 160) + "px"; els.go.disabled = !els.q.value.trim() || !!es; };
   els.q.addEventListener("input", autosize);
-  els.q.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); els.askForm.requestSubmit(); } });
+  // Enter (with no suggestion picked) asks; the picker owns the key so ↑/↓/Enter can choose a suggestion
+  const picker = attach(els.q, els.qSuggest, { onEnter: () => els.askForm.requestSubmit(), enabled: () => !docScope && !es });
+  document.body.classList.add("on-home");
   els.askForm.onsubmit = (e) => { e.preventDefault(); const q = els.q.value.trim(); if (q && !es) ask(q); };
   let ph = 0;
   const phTimer = setInterval(() => { if (document.activeElement !== els.q && !els.q.value && !docScope) els.q.placeholder = PLACEHOLDERS[ph = (ph + 1) % PLACEHOLDERS.length]; }, 4000);
@@ -152,7 +158,7 @@ export async function show(view, { query }) {
   function resetView(q) {
     els.home.hidden = true; els.result.hidden = false;
     els.answer.className = "text"; els.answer.innerHTML = ""; els.facts.innerHTML = ""; els.breakdown.innerHTML = "";
-    els.note.hidden = true; els.meta.textContent = ""; els.sources.innerHTML = ""; els.sourcesWrap.hidden = true;
+    els.note.hidden = true; els.meta.textContent = ""; els.sources.innerHTML = ""; els.sourcesWrap.hidden = true; els.allLink.hidden = true;
     els.copyBtn.hidden = els.aiBtn.hidden = els.upBtn.hidden = els.downBtn.hidden = true; els.fbBox.hidden = true;
     setMode("", ""); els.q.value = q; autosize();
   }
@@ -165,7 +171,7 @@ export async function show(view, { query }) {
     els.copyBtn.hidden = false; showVote();
   }
   function ask(q, full = false) {
-    stop(); resetView(q); els.q.blur();
+    stop(); picker.close(); resetView(q); els.q.blur();
     const t0 = performance.now();
     tick = setInterval(() => { els.timer.textContent = ((performance.now() - t0) / 1000).toFixed(0) + "s"; }, 250);
     els.go.classList.add("busy"); setMode("", "Searching…");
@@ -216,6 +222,8 @@ export async function show(view, { query }) {
       r = JSON.parse(e.data);
       setMode("", r.sources.length ? `Reading ${Math.min(r.sources.length, 3)} of ${r.library}` : "");
       renderSources(r.sources, r.highlight);
+      // the Library's word search, for when the answer's sources aren't everything you're after
+      if (r.sources.length && !docScope) { els.allLink.href = "/library?q=" + encodeURIComponent(q); els.allLink.hidden = false; }
       if (r.sources.length) { els.answer.className = "text quick"; els.answer.innerHTML = renderAnswer(r.extractive.text, r.sources) + ' <span class="caret"></span>'; renderFacts(r.extractive.facts); }
     });
     es.addEventListener("stage", (e) => { setMode("", JSON.parse(e.data).busy ? "Waiting for the AI…" : "Writing…"); });
@@ -266,5 +274,5 @@ export async function show(view, { query }) {
   if (docParam) { const d = await api(`/api/documents/${docParam}`, { quiet: true }).catch(() => null); if (d) { docScope = { id: d.id, title: d.title }; renderCtx(); els.q.placeholder = "Ask about this document…"; els.q.focus(); } }
   const initial = query.get("q");
   if (initial) ask(initial); else if (!docParam && matchMedia("(hover: hover)").matches) els.q.focus();
-  return () => { stop(); clearInterval(phTimer); };
+  return () => { stop(); clearInterval(phTimer); picker.detach(); document.body.classList.remove("on-home"); };
 }

@@ -269,3 +269,9 @@ function drawUpdateNotice() {
   };
   $("#view")?.prepend(box);
 }
+
+// Library and Browse are one place (the Library tab): this switch sits at the top of both.
+export function libSwitch(current) {
+  const a = (href, key, text) => `<a href="${href}" class="${key === current ? "on" : ""}"${key === current ? ' aria-current="page"' : ""}>${text}</a>`;
+  return `<nav class="seg lib-switch" aria-label="Library view">${a("/library", "library", "All documents")}${a("/browse", "browse", "Browse")}</nav>`;
+}

@@ -1,9 +1,9 @@
 // Browse: the filing cabinet (spec C.1) — drill Category → Company → Year, or start from
 // Type, Tag, Topic or Year → Month.
-import { $, $$, api, qs, esc, plural, docCard } from "./core.js";
+import { $, $$, api, qs, esc, plural, docCard, libSwitch } from "./core.js";
 import { loadAz } from "./az.js";
 
-export const nav = "browse";
+export const nav = "library";   // Browse lives under the Library tab
 const TABS = [
   { by: "category", label: "Cabinet" },
   { by: "type", label: "Type" },
@@ -29,7 +29,8 @@ export async function show(view, { query }) {
   let docs = [], total = 0;
 
   view.innerHTML = `<div class="page">
-    <div class="head"><h1>Browse</h1><span class="faint num" id="count"></span></div>
+    <div class="head"><h1>Library</h1><span class="faint num" id="count"></span></div>
+    ${libSwitch("browse")}
     <div class="seg browse-tabs" id="tabs">${TABS.map((t) =>
       `<button data-by="${t.by}" class="${t.by === by ? "on" : ""}">${t.label}</button>`).join("")}</div>
     <div class="crumbs" id="crumbs"></div>

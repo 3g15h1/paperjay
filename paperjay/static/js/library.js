@@ -1,5 +1,5 @@
 // Library: search and filter every document, saved searches, grid or list, select several and act on them.
-import { $, $$, api, qs, esc, icon, labels, tagChip, docCard, go, toast, promptBox, confirmBox, plural, refreshCounts, combo, ensureLabel, modal, closeModal } from "./core.js";
+import { $, $$, api, qs, esc, icon, labels, tagChip, docCard, go, toast, promptBox, confirmBox, plural, refreshCounts, combo, ensureLabel, modal, closeModal, libSwitch } from "./core.js";
 
 export const nav = "library";
 const PAGE = 60;
@@ -26,6 +26,7 @@ export async function show(view, { query }) {
     <div class="head libhead"><h1>Library</h1><span class="faint num" id="count"></span><span class="spacer"></span>
       <div class="seg" id="layout"><button data-l="grid" title="Grid">${icon("grid")}</button><button data-l="rows" title="List">${icon("rows")}</button></div>
       <button class="btn" id="selBtn">Select</button></div>
+    ${libSwitch("library")}
     <div class="filters searchrow">
       <label class="search">${icon("search")}<input class="input" id="q" type="search" placeholder="Search text, titles, companies, tags, notes" value="${esc(f.q)}" autocomplete="off"></label>
       <button type="button" class="btn" id="filtBtn" aria-expanded="false">Filters</button>

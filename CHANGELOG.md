@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.4
+
+- **One box to find or ask.** As you type in the Ask box, it suggests matching companies, people, topics,
+  numbers and documents; tap one to open it, or press Enter to ask your question. The matching documents
+  show up straight away while the AI writes its answer, and **See every match in the Library** below them
+  opens the full word search. On a phone this replaces the round search button; on a computer the search
+  box in the sidebar still works on every other page, and `/` jumps to the Ask box on the start page.
+- **The + button is in the middle of the bar on a phone.** The bar is now Ask, Library, +, Review and More.
+- **Browse is part of the Library.** Open the Library and switch between **All documents** and **Browse**
+  (the filing cabinet, types, tags, topics, years and A–Z) at the top. Old Browse links still work.
+
 ## 0.5.3
 
 - **PaperJay tells you when a new version is out.** Every few hours it asks GitHub whether there's a newer
