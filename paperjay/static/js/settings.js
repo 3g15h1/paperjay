@@ -1,0 +1,573 @@
+// Settings: a list of sections (/settings); each opens on its own page (/settings/<key>) with a back button.
+import { mailHTML, mailSetup } from "./mail.js";
+import { $, $$, api, esc, icon, ago, toast, refreshAI, refreshUpdateNotice, plural, me, confirmBox, promptBox, modal, closeModal, signOut, go } from "./core.js";
+
+export const nav = "settings";
+
+const ROLE_NAMES = { admin: "Can do everything", member: "Can add and edit", readonly: "Can only look" };
+// Tesseract's language codes, as people know them
+const LANG_NAMES = { eng: "English", deu: "German", fra: "French", spa: "Spanish", ita: "Italian", nld: "Dutch", por: "Portuguese",
+  pol: "Polish", ukr: "Ukrainian", rus: "Russian", ces: "Czech", slk: "Slovak", hun: "Hungarian", ron: "Romanian", bul: "Bulgarian",
+  hrv: "Croatian", srp: "Serbian", slv: "Slovenian", sqi: "Albanian", ell: "Greek", tur: "Turkish", swe: "Swedish", nor: "Norwegian",
+  dan: "Danish", fin: "Finnish", isl: "Icelandic", est: "Estonian", lav: "Latvian", lit: "Lithuanian", cat: "Catalan", eus: "Basque",
+  glg: "Galician", gle: "Irish", cym: "Welsh", ara: "Arabic", heb: "Hebrew", fas: "Persian", hin: "Hindi", ben: "Bengali",
+  urd: "Urdu", tha: "Thai", vie: "Vietnamese", ind: "Indonesian", msa: "Malay", tgl: "Filipino", jpn: "Japanese", kor: "Korean",
+  chi_sim: "Chinese (simplified)", chi_tra: "Chinese (traditional)", afr: "Afrikaans", swa: "Swahili" };
+
+// Settings is a list; each entry opens its own page at /settings/<key> with a back button.
+export const SECTIONS = [
+  { key: "account", icon: "user", title: "Your account", sub: "Your password, your calendar link and access keys for apps" },
+  { key: "people", icon: "users", title: "People", sub: "Who in your household can use PaperJay, and what each person may do", admin: true },
+  { key: "household", icon: "users", title: "Household", sub: "The people your documents are about, so search and questions understand them", admin: true },
+  { key: "reading", icon: "eye", title: "Reading documents", sub: "The languages your documents are in, and how dates are written", admin: true },
+  { key: "ai", icon: "sparkle", title: "Smart filing (AI)", sub: "An AI program on your own computer that names and sorts documents, and smart search", admin: true },
+  { key: "questions", icon: "ask", title: "Questions", sub: "Example questions on the Ask page, and the words your household uses", admin: true },
+  { key: "reminders", icon: "calendar", title: "Reminders", sub: "Bills that are due and things that expire", admin: true },
+  { key: "filing", icon: "redo", title: "Filing", sub: "Re-file every document after you've tidied up", admin: true },
+  { key: "paper", icon: "archive", title: "Paper shelf", sub: "Number the paper originals you keep", admin: true },
+  { key: "email", icon: "mail", title: "Email", sub: "Collect bills and statements that arrive by email", admin: true },
+  { key: "appearance", icon: "sun", title: "Appearance", sub: "Light or dark" },
+  { key: "updates", icon: "download", title: "Updates", sub: "New versions of PaperJay with fixes and new features", admin: true },
+  { key: "import", icon: "upload", title: "Moving in and backing up", sub: "Bring documents over from Paperless-ngx, or download a copy of everything", admin: true },
+  { key: "feedback", icon: "down", title: "Answers marked wrong", sub: "Answers someone gave a 👎, with tips to help PaperJay next time", admin: true },
+];
+// Old links pointed at a spot on the one long page (/settings#calendar); send them to the page that has it now.
+const OLD_ANCHORS = { calendar: "account", email: "email", updates: "updates", import: "import" };
+
+const backBar = () => `<div class="head" style="margin-bottom:6px"><a class="btn ghost sm" href="/settings">← Settings</a></div>`;
+const entry = (href, ic, title, sub, cls = "") => `<a class="item${cls}" href="${href}">${icon(ic)}<span class="main"><div class="t">${title}</div><div class="sub">${sub}</div></span><span class="faint">›</span></a>`;
+
+function overview(view) {
+  const old = location.hash.slice(1);
+  const target = OLD_ANCHORS[old] || (SECTIONS.some((x) => x.key === old) ? old : "");
+  if (target) { go(`/settings/${target}${old === "calendar" ? "#calendar" : ""}`, { replace: true }); return; }
+  view.innerHTML = `<div class="page narrow">
+    <div class="head"><h1>Settings</h1></div>
+    <div class="card list mobile-more wraplist" style="margin-bottom:12px">
+      ${entry("/labels", "tag", "Tags &amp; companies", "Rename, merge or remove the labels your documents are sorted by")}
+      ${entry("/trash", "trash", "Trash", "Deleted documents, kept for 30 days in case you change your mind")}
+    </div>
+    <div class="card list wraplist" style="margin-bottom:12px">
+      ${entry("/secure", "camera", "Use the camera scanner on this phone", "A one-time setup so the camera can find the page and take the photo for you")}
+    </div>
+    <div class="card list wraplist" id="sections">
+      ${SECTIONS.map((x) => entry(`/settings/${x.key}`, x.icon, esc(x.title), esc(x.sub), x.admin ? " admin-only" : "")).join("")}
+    </div>
+  </div>
+  <style>@media (min-width: 821px) { .mobile-more { display: none; } }</style>`;
+}
+
+export async function show(view, params) {
+  const sec = params?.section || "";
+  if (!sec) return overview(view);
+  const [s, status] = await Promise.all([api("/api/settings"), sec === "ai" ? api("/api/ai/status", { quiet: true }).catch(() => null) : null]);
+  const theme = localStorage.getItem("pj-theme") || "system";
+  const HTML = {
+    account: () => `<div class="section"><div class="h"><h2>Your account</h2><span class="aside">${esc(me?.display_name || "")} · ${esc(ROLE_NAMES[me?.role] || "")}</span></div>
+    <p class="sec-desc">Your password, and adding your reminders to your phone's calendar.</p>
+    <div class="card pad" style="display:grid;gap:16px">
+      <form id="pwForm" style="display:grid;gap:8px">
+        <b>Change your password</b>
+        <div class="row" style="align-items:flex-start">
+          <label class="field" style="flex:1;min-width:160px">Current password<input class="input" type="password" name="current" autocomplete="current-password"></label>
+          <label class="field" style="flex:1;min-width:160px">New password<input class="input" type="password" name="new" autocomplete="new-password" minlength="8"><span class="help">At least 8 characters.</span></label></div>
+        <div class="help">You'll stay signed in here, but need to sign in again on your other devices.</div>
+        <div><button class="btn">Change password</button></div></form>
+      <div id="calendar" style="display:grid;gap:8px"><b>Reminders in your phone's calendar</b>
+        <div class="help">Bills that are due and things that expire (insurance, passports, warranties) show up as events in your phone's calendar,
+          with reminders. The link only shows those dates; nobody can open your documents with it.</div>
+        <div><button class="btn sm" id="calBtn">${icon("calendar")} Get my calendar link</button></div><div id="calOut"></div></div>
+      <details class="adv"><summary>Advanced: access keys for apps and shortcuts</summary>
+        <div style="display:grid;gap:8px;margin-top:10px">
+          <div class="help">Only needed if you set up an iPhone Shortcut, a scanner or another app to send documents to PaperJay.
+            A key works like your password, so give each one a name you'll recognise and remove it when you stop using that app.</div>
+          <div class="list card" id="tokens"></div><div><button class="btn sm" id="tokBtn">${icon("plus")} New access key</button></div></div></details>
+      <div><button class="btn ghost sm" id="outBtn">Sign out</button></div>
+    </div></div>`,
+    people: () => `<div class="section"><div class="h"><h2>People</h2><button class="btn sm aside" id="addPerson">${icon("plus")} Add someone</button></div>
+      <p class="sec-desc">Who in your household can use PaperJay, and what each person may do. Everyone sees the same documents.</p>
+      <div class="card list people" id="people"></div>
+      <div class="help" style="margin:8px 2px"><b>Can do everything</b>: also change these settings and add people.
+        <b>Can add and edit</b>: add, sort and change documents. <b>Can only look</b>: browse, search and ask questions.</div></div>`,
+    household: () => `<div class="section"><div class="h"><h2>Household</h2><button class="btn sm aside" id="addHousehold">${icon("plus")} Add a person</button></div>
+      <p class="sec-desc">The people your documents are about, so search and questions understand them. A person can be
+        named by any of their other names (“Dad”, a name their older papers use), and linking a person to an account
+        makes “my papers” mean theirs when they ask.</p>
+      <div class="card list" id="household"></div>
+      <div style="margin-top:10px"><button class="btn primary sm" id="saveHousehold">Save household</button></div></div>`,
+    reading: () => `<div class="section"><div class="h"><h2>Reading documents</h2></div>
+    <p class="sec-desc">How PaperJay reads the text in your scans, photos and PDFs.</p>
+    <form class="card pad" id="readForm" style="display:grid;gap:16px">
+      <div class="field">Languages your documents are written in<div class="help">Tick every language you get letters in. Fewer languages read faster and more accurately.</div><div class="chips" id="langs"></div></div>
+      <label class="field">How dates are written in your documents<select class="input" name="date_order"><option value="MDY">Month first: 03/04/2025 is March 4 (US)</option><option value="DMY">Day first: 03/04/2025 is 3 April (most other countries)</option></select></label>
+      <div><button class="btn primary">Save</button></div></form></div>`,
+    ai: () => `<div class="section"><div class="h"><h2>Smart filing (AI)</h2><span class="aside" id="aiState"></span></div>
+    <p class="sec-desc">Optional. An AI program on your own computer can name and sort new documents for you, and answer questions in full sentences.
+      Without it PaperJay still reads, searches and finds everything. Your documents never leave your home.</p>
+    <form class="card pad" id="aiForm" style="display:grid;gap:16px">
+      <label class="field">AI program<select class="input" name="ai_provider">
+        <option value="off">Off</option><option value="ollama">Ollama (recommended, free)</option><option value="openai">Another AI program (LM Studio, llama.cpp, vLLM or a similar one)</option></select>
+        <span class="help">Install Ollama on a computer in your home first. <a href="https://github.com/3g15h1/paperjay/blob/main/docs/ai-models.md" target="_blank" rel="noopener" style="color:var(--accent)">How to set it up and which model to pick</a></span></label>
+      <div id="aiFields" style="display:grid;gap:16px">
+        <label class="field">Where the AI program runs<input class="input" name="ai_url" placeholder="http://localhost:11434">
+          <span class="help">Its web address, for example http://192.168.1.10:11434 (11434 is Ollama's usual port).</span></label>
+        <label class="field">AI model<input class="input" name="ai_model" list="models" placeholder="qwen2.5:3b-instruct">
+          <span class="help">The model PaperJay uses to sort documents and write answers. Smaller models are quicker; bigger ones make fewer mistakes. “Check it works” lists the ones you have.</span></label>
+        <datalist id="models"></datalist>
+        <label class="field" id="keyField">Password for the AI program<input class="input" name="ai_api_key" type="password" autocomplete="off" placeholder="Only if it asks for one">
+          <span class="help">Some AI programs and online services need a key; Ollama doesn't.</span></label>
+        <label class="check"><input type="checkbox" name="ai_no_think"><span>Answer without a thinking step<div class="help">For models that think before they answer (Qwen3 and similar). Much faster; turn it off if your AI program complains.</div></span></label>
+        <label class="check"><input type="checkbox" name="ai_filing"><span>Name and sort new documents for me<div class="help">Fills in the title, date, company, type and tags. It never changes anything you've set yourself, and anything it isn't sure about waits for you in Needs review.</div></span></label>
+        <label class="check"><input type="checkbox" name="ai_new_correspondents"><span>Add companies it hasn't seen before<div class="help">Otherwise it only picks from the companies you already have.</div></span></label>
+        <details class="adv" id="threadField"><summary>Advanced</summary><label class="field" style="margin-top:10px">Processor cores the AI may use<input class="input" name="ai_threads" type="number" min="0" max="128">
+          <span class="help">Leave it at 0 and Ollama decides. Set it to the number of cores of the computer running Ollama if answers are very slow.</span></label></details>
+      </div>
+      <label class="field">Smart search<select class="input" name="embed_source">
+        <option value="builtin">Built into PaperJay (recommended)</option><option value="ai">Use the AI program's model</option><option value="off">Off</option></select>
+        <span class="help">Lets search find documents by what they mean: “electricity” also finds your power bill. The built-in one works even with the AI program off.</span></label>
+      <label class="field" id="embedModelField">Smart search model<input class="input" name="embed_model" list="models" placeholder="nomic-embed-text">
+        <span class="help">The AI program's embedding model, for example nomic-embed-text.</span></label>
+      <div id="testOut" class="small" style="display:grid;gap:4px"></div>
+      <div class="row"><button class="btn primary">Save</button><button type="button" class="btn" id="testBtn">Check it works</button></div>
+    </form></div>`,
+    questions: () => `<div class="section"><div class="h"><h2>Questions</h2></div>
+    <p class="sec-desc">Make the Ask page fit your household.</p>
+    <form class="card pad" id="askForm" style="display:grid;gap:16px">
+      <label class="field">Example questions on the Ask page<textarea class="input" name="ask_suggestions" rows="4" placeholder="When does my car insurance expire?"></textarea>
+        <span class="help">One per line. They're shown as suggestions you can tap.</span></label>
+      <label class="field">Words your household uses<input class="input" name="ask_synonyms" placeholder="electric=acme energy; internet=fastnet">
+        <span class="help">If you say “electric” but your bills say “Acme Energy”, tell PaperJay they mean the same thing: <code>electric=acme energy</code>.
+          Several names go after one word with commas; separate words with a semicolon.</span></label>
+      <div><button class="btn primary">Save</button></div>
+    </form></div>`,
+    reminders: () => `<div class="section"><div class="h"><h2>Reminders</h2></div>
+    <p class="sec-desc">Bills that are due and things that expire, on the start page and in your phone's calendar.</p>
+    <form class="card pad" id="upForm" style="display:grid;gap:16px">
+      <div class="row" style="align-items:flex-start">
+        <label class="field" style="flex:1">How far ahead to show (days)<input class="input" type="number" min="1" max="3660" name="reminder_days"><span class="help">60 shows the next two months.</span></label>
+        <label class="field" style="flex:1">Remind me this many days before<input class="input" name="alert_days" placeholder="14, 3, 1, 0"><span class="help">Separate with commas; 0 is the day itself.</span></label></div>
+      <label class="field">Tags that mean a bill is paid<input class="input" name="done_tags" placeholder="paid"><span class="help">Bills with one of these tags no longer get reminders.</span></label>
+      <div><button class="btn primary">Save</button></div>
+    </form></div>`,
+    filing: () => `<div class="section"><div class="h"><h2>Filing</h2></div>
+    <p class="sec-desc">PaperJay files each document when it arrives. After you've tidied up or changed a lot of filing by hand, re-file everything so older documents learn from it too. Anything you set yourself is never changed.</p>
+    <div class="card pad" style="display:grid;gap:12px">
+      <label class="check" id="refileAiWrap" hidden><input type="checkbox" id="refileAi"><span>Also let the AI read every document again<div class="help" id="refileAiHelp"></div></span></label>
+      <div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" id="refileAll">${icon("redo")} Re-file everything</button><span class="help" id="refileNote"></span></div>
+    </div></div>`,
+    paper: () => `<div class="section"><div class="h"><h2>Paper shelf</h2></div>
+    <p class="sec-desc">Number the paper originals you keep, so a document in PaperJay points at a sheet on the shelf — and the sheet points back.</p>
+    <form class="card pad" id="paperForm" style="display:grid;gap:16px">
+      <label class="check"><input type="checkbox" name="paper_numbers"><span>Number the paper I keep<div class="help">Uploading and scanning then offer “Keeping the paper?” with the next free number. Write it on the original (or print labels from the Library — selected documents, or a sheet of numbers ahead of time). Find a sheet by typing its number, like #124, in the Library search or in Ask.</div></span></label>
+      <div><button class="btn primary">Save</button></div>
+    </form></div>`,
+    email: () => mailHTML(),
+    appearance: () => `<div class="section"><div class="h"><h2>Appearance</h2></div>
+    <p class="sec-desc">Light or dark. “Automatic” follows your phone or computer.</p>
+    <div class="card pad"><div class="seg" id="theme"><button data-v="system">Automatic</button><button data-v="dark">Dark</button><button data-v="light">Light</button></div></div></div>`,
+    updates: () => `<div class="section" id="updates"><div class="h"><h2>Updates</h2></div>
+    <p class="sec-desc">New versions of PaperJay with fixes and new features.</p>
+    <div class="card pad" id="upd" style="display:grid;gap:10px"><span class="faint">Checking…</span></div></div>`,
+    import: () => `<div class="section" id="import"><div class="h"><h2>Moving in and backing up</h2></div>
+    <p class="sec-desc">Bring documents over from Paperless-ngx, or take a copy of everything with you.</p>
+    <div class="card pad" style="display:grid;gap:18px">
+      <form id="plForm" style="display:grid;gap:10px">
+        <b>Bring documents over from Paperless-ngx</b>
+        <div class="help">Copies every document with its title, date, company, type, tags and notes. Nothing changes in Paperless,
+          and if you run it again it skips what's already here.</div>
+        <div class="row" style="align-items:flex-end">
+          <label class="field" style="flex:2;min-width:200px">Paperless web address<input class="input" name="url" placeholder="http://paperless.local:8000"></label>
+          <label class="field" style="flex:2;min-width:200px">Paperless access key <span class="faint">(in Paperless: your name → My Profile → API Auth Token)</span><input class="input" name="token" type="password" autocomplete="off"></label></div>
+        <div class="help">The key is only used for this one import and isn't kept.</div>
+        <div class="row"><button type="button" class="btn" id="plCheck">Check first</button><button class="btn primary" id="plGo" disabled>Bring them over</button></div>
+        <div id="plOut" class="small"></div>
+      </form>
+      <div style="display:grid;gap:8px"><b>Download a copy of everything</b>
+        <div class="help">All your documents as ordinary PDF and photo files you can open anywhere, plus a list of how they're sorted.
+          Keep it somewhere safe as a backup, or take it with you if you ever stop using PaperJay.</div>
+        <div><a class="btn" href="/api/export.zip" download>${icon("download")} Download everything (.zip)</a></div>
+        <details class="adv"><summary>Advanced: automatic copies every night</summary>
+          <div class="help" style="margin-top:8px">On the computer PaperJay runs on, schedule <code>paperjay export /path/to/folder</code>
+            (for example to a NAS). It only copies what changed since last time.</div></details></div>
+    </div></div>`,
+    feedback: () => `<div class="section"><div class="h"><h2>Answers marked wrong</h2><span class="aside" id="fbSum"></span></div>
+      <p class="sec-desc">Answers someone gave a 👎, with tips on how to help PaperJay find the right document next time.</p>
+      <div class="card list" id="fb"></div></div>`,
+  };
+  const meta = SECTIONS.find((x) => x.key === sec);
+  if (!meta) { view.innerHTML = `<div class="page narrow"><div class="empty">This page doesn't exist. <a href="/settings">Back to Settings</a></div></div>`; return; }
+  if (meta.admin && me?.role !== "admin") {
+    view.innerHTML = `<div class="page narrow">${backBar()}<div class="empty">Only someone who can do everything can change this.</div></div>`; return;
+  }
+  view.innerHTML = `<div class="page narrow settings-page">${backBar()}${HTML[sec]()}</div>`;
+  const els = Object.fromEntries($$("[id]", view).map((e) => [e.id, e]));
+
+  // ---------- AI ----------
+  if (sec === "ai") {
+    const f = els.aiForm;
+    const fill = () => {
+      for (const k of ["ai_provider", "ai_url", "ai_model", "embed_model", "embed_source", "ai_api_key", "ai_threads"]) f.elements[k].value = s[k] ?? "";
+      f.elements.ai_filing.checked = s.ai_filing; f.elements.ai_new_correspondents.checked = s.ai_new_correspondents;
+      f.elements.ai_no_think.checked = s.ai_no_think;
+      sync();
+    };
+    function sync() {
+      const p = f.elements.ai_provider.value;
+      els.aiFields.hidden = p === "off";
+      els.keyField.hidden = p !== "openai"; els.threadField.hidden = p !== "ollama";
+      els.embedModelField.hidden = f.elements.embed_source.value !== "ai";
+      if (p === "ollama" && !f.elements.ai_url.value) f.elements.ai_url.value = "http://localhost:11434";
+    }
+    f.elements.ai_provider.onchange = sync; f.elements.embed_source.onchange = sync;
+    const aiValues = () => ({
+      ai_provider: f.elements.ai_provider.value, ai_url: f.elements.ai_url.value.trim() || "http://localhost:11434",
+      ai_model: f.elements.ai_model.value.trim(), embed_model: f.elements.embed_model.value.trim(), ai_api_key: f.elements.ai_api_key.value,
+      embed_source: f.elements.embed_source.value, ai_no_think: f.elements.ai_no_think.checked,
+      ai_threads: +f.elements.ai_threads.value || 0, ai_filing: f.elements.ai_filing.checked, ai_new_correspondents: f.elements.ai_new_correspondents.checked,
+    });
+    f.onsubmit = async (e) => { e.preventDefault(); Object.assign(s, await api("/api/settings", { method: "PUT", body: aiValues() })); toast("Saved"); refreshAI(); drawStatus(); };
+    els.testBtn.onclick = async () => {
+      els.testOut.innerHTML = `<span class="faint">Checking… (on a computer without a graphics card the first answer can take a minute)</span>`;
+      els.testBtn.disabled = true;
+      try {
+        const r = await api("/api/settings/ai/test", { method: "POST", body: aiValues() });
+        const names = { AI: "AI", server: "AI program", "answer model": "AI model", "embedding model": "Smart search model" };
+        els.testOut.innerHTML = r.steps.map((st) => `<div style="color:${st.ok ? "var(--good)" : "var(--bad)"}">${st.ok ? "✓" : "✕"} ${esc(names[st.step] || st.step)}: <span class="muted">${esc(st.detail)}</span></div>`).join("");
+        $("#models", view).innerHTML = (r.models || []).map((m) => `<option value="${esc(m)}">`).join("");
+      } finally { els.testBtn.disabled = false; }
+    };
+    async function drawStatus() {
+      const a = await api("/api/ai/status", { quiet: true }).catch(() => status);
+      if (!a) return;
+      const smart = a.meaning ? `${a.embedded} of ${plural(a.documents, "document")} ready for smart search` : "";
+      els.aiState.textContent = !a.on ? (smart ? `AI off, ${smart}` : "Off") : `${a.analyzed} of ${plural(a.documents, "document")} sorted${smart ? `, ${a.embedded} ready for smart search` : ""}`;
+    }
+    fill(); drawStatus();
+  }
+
+  // ---------- questions ----------
+  if (sec === "questions") {
+    const af = els.askForm;
+    af.elements.ask_suggestions.value = (s.ask_suggestions || []).join("\n");
+    af.elements.ask_synonyms.value = s.ask_synonyms || "";
+    af.onsubmit = async (e) => {
+      e.preventDefault();
+      await api("/api/settings", { method: "PUT", body: { ask_suggestions: af.elements.ask_suggestions.value.split("\n").map((x) => x.trim()).filter(Boolean),
+        ask_synonyms: af.elements.ask_synonyms.value.trim() } });
+      toast("Saved");
+    };
+  }
+
+  // ---------- reminders ----------
+  if (sec === "reminders") {
+    const uf = els.upForm;
+    uf.elements.reminder_days.value = s.reminder_days;
+    uf.elements.alert_days.value = (s.alert_days || []).join(", ");
+    uf.elements.done_tags.value = (s.done_tags || []).join(", ");
+    uf.onsubmit = async (e) => {
+      e.preventDefault();
+      const days = uf.elements.alert_days.value.split(",").map((x) => parseInt(x, 10)).filter((x) => x >= 0);
+      await api("/api/settings", { method: "PUT", body: { reminder_days: +uf.elements.reminder_days.value || 60, alert_days: days,
+        done_tags: uf.elements.done_tags.value.split(",").map((x) => x.trim()).filter(Boolean) } });
+      toast("Saved");
+    };
+  }
+
+  // ---------- filing: re-file everything (spec E) ----------
+  if (sec === "filing") {
+    api("/api/refile", { method: "POST", body: {}, quiet: true }).then((est) => {
+      els.refileNote.textContent = `${plural(est.documents, "document")}. The text patterns and your own filing take seconds.`;
+      if (est.ai_on) {
+        els.refileAiWrap.hidden = false;
+        els.refileAiHelp.textContent = `About ${est.ai_estimate.replace(/^about /, "")} for ${plural(est.documents, "document")}, in the background. Questions still work meanwhile.`;
+      }
+      els.refileAll.onclick = async () => {
+        const withAi = est.ai_on && els.refileAi.checked;
+        const ok = await confirmBox("Re-file everything?", `${plural(est.documents, "document")} will be filed again from their text and your own filing${withAi ? `, and the AI will read each one again (${est.ai_estimate})` : ""}. Anything you set yourself stays as it is.`, { ok: "Re-file" });
+        if (!ok) return;
+        const r = await api("/api/refile", { method: "POST", body: { confirm: true, ai: withAi } });
+        toast(`Re-filing ${plural(r.queued, "document")}${r.queued_ai ? "; the AI reads them in the background" : ""}`);
+      };
+    }).catch(() => {});
+  }
+
+  // ---------- paper shelf ----------
+  if (sec === "paper") {
+    const paperF = els.paperForm;
+    paperF.elements.paper_numbers.checked = !!s.paper_numbers;
+    paperF.onsubmit = async (e) => {
+      e.preventDefault();
+      Object.assign(s, await api("/api/settings", { method: "PUT", body: { paper_numbers: paperF.elements.paper_numbers.checked } }));
+      toast("Saved");
+    };
+  }
+
+  // ---------- theme ----------
+  if (sec === "appearance") {
+    const setTheme = (v) => {
+      localStorage.setItem("pj-theme", v);
+      if (v === "system") delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = v;
+      els.theme.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+    };
+    els.theme.onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) setTheme(b.dataset.v); };
+    setTheme(theme);
+  }
+
+  // ---------- feedback ----------
+  if (sec === "feedback") {
+    const fb = await api("/api/feedback", { quiet: true }).catch(() => ({ items: [] }));
+    const down = fb.items.filter((x) => x.vote === "down");
+    els.fbSum.textContent = fb.total ? `${fb.down} marked wrong · ${fb.up} marked right` : "";
+    els.fb.innerHTML = down.slice(0, 30).map((x) => `<div class="item" style="display:grid;gap:3px">
+      <div class="t"><b>${esc(x.question)}</b> <span class="faint small">${ago(x.created_at)}</span></div>
+      ${x.answer ? `<div class="sub" style="white-space:normal">${esc(x.answer)}</div>` : ""}
+      ${x.comment ? `<div class="small" style="color:var(--warn)">“${esc(x.comment)}”</div>` : ""}
+      ${x.missing.length ? `<div class="small faint">No document uses ${x.missing.map((w) => `“${esc(w)}”`).join(", ")}. If yours say it differently, add it under “Words your household uses”, e.g. <code>${esc(x.missing[0].toLowerCase())}=otherword</code>.</div>` : ""}
+    </div>`).join("") || `<div class="empty">Nothing marked wrong yet. Tap 👍 or 👎 under an answer to tell PaperJay how it did.</div>`;
+  }
+
+  // ---------- account ----------
+  if (sec === "account") {
+    els.pwForm.onsubmit = async (e) => {
+      e.preventDefault();
+      await api("/api/auth/password", { method: "POST", body: { current: els.pwForm.current.value, new: els.pwForm.new.value } });
+      els.pwForm.reset(); toast("Password changed. You're signed out on your other devices.");
+    };
+    els.outBtn.onclick = signOut;
+    const showSecret = (title, value, note) => modal(`<h1 style="font-size:17px">${esc(title)}</h1>
+      <input class="input" readonly value="${esc(value)}" onclick="this.select()"><div class="muted small">${esc(note)}</div>
+      <div class="acts"><button class="btn" data-copy>Copy</button><button class="btn primary" data-close>Done</button></div>`, { onMount: (box) => {
+        box.querySelector("[data-copy]").onclick = () => navigator.clipboard.writeText(value).then(() => toast("Copied"));
+        box.querySelector("[data-close]").onclick = () => { closeModal(); drawTokens(); };
+      } });
+    async function drawTokens() {
+      const ts = await api("/api/auth/tokens");
+      els.tokens.innerHTML = ts.map((t) => `<div class="item"><span class="main"><div class="t">${esc(t.name)} <span class="faint small">${esc(t.prefix)}…${t.scope === "calendar" ? " · calendar link" : ""}</span></div>
+        <div class="sub">made ${ago(t.created_at)}${t.last_used_at ? ", last used " + ago(t.last_used_at) : ", never used"}</div></span>
+        <button class="btn ghost sm danger" data-revoke="${t.id}">Remove</button></div>`).join("") || `<div class="empty" style="padding:14px">No access keys yet.</div>`;
+    }
+    els.tokens.onclick = async (e) => {
+      const b = e.target.closest("[data-revoke]"); if (!b) return;
+      if (await confirmBox("Remove this access key?", "The app or shortcut using it stops working straight away.", { ok: "Remove", danger: true })) { await api(`/api/auth/tokens/${b.dataset.revoke}`, { method: "DELETE" }); drawTokens(); }
+    };
+    els.tokBtn.onclick = async () => {
+      const name = await promptBox("New API token", { label: "What is it for?", placeholder: "e.g. iPhone Shortcut", ok: "Create" });
+      if (!name) return;
+      const t = await api("/api/auth/tokens", { method: "POST", body: { name } });
+      showSecret("Your new token", t.token, "Copy it now: it won't be shown again. It can do everything your account can.");
+    };
+    els.calBtn.onclick = async () => {
+      const t = await api("/api/auth/tokens", { method: "POST", body: { name: "Calendar", scope: "calendar" } });
+      const url = (location.protocol === "https:" ? "https://" : "webcal://") + location.host + "/calendar.ics?token=" + t.token;
+      showSecret("Your calendar link", url, "Add it as a calendar subscription (iPhone: Settings → Calendar → Accounts → Add Subscribed Calendar). It can only read the calendar.");
+    };
+    drawTokens();
+  }
+
+  // ---------- people (admin) ----------
+  if (sec === "people") {
+    async function drawPeople() {
+      if (me?.role !== "admin") return;
+      const ps = await api("/api/users");
+      els.people.innerHTML = ps.map((p) => `<div class="item"><span class="main"><div class="t">${esc(p.display_name)} <span class="faint small">${esc(p.username)}</span></div>
+        <div class="sub">${p.disabled ? "Paused: can't sign in" : "Added " + ago(p.created_at)}</div></span>
+        <select class="input" data-role="${p.id}" style="width:auto;height:30px">${["admin", "member", "readonly"].map((r) => `<option value="${r}" ${r === p.role ? "selected" : ""}>${ROLE_NAMES[r]}</option>`).join("")}</select>
+        <button class="btn ghost sm" data-pw="${p.id}">Set password</button>
+        ${p.id === me.id ? "" : `<button class="btn ghost sm" data-off="${p.id}" data-v="${p.disabled ? 0 : 1}">${p.disabled ? "Let them in" : "Pause"}</button>
+        <button class="btn ghost sm icon danger" data-del="${p.id}" title="Remove">${icon("trash")}</button>`}</div>`).join("");
+    }
+    els.people.onchange = async (e) => { const s = e.target.closest("[data-role]"); if (s) { await api(`/api/users/${s.dataset.role}`, { method: "PATCH", body: { role: s.value } }).catch(() => {}); drawPeople(); } };
+    els.people.onclick = async (e) => {
+      const pw = e.target.closest("[data-pw]"), off = e.target.closest("[data-off]"), del = e.target.closest("[data-del]");
+      if (pw) { const p = await promptBox("Set a new password", { label: "At least 8 characters", ok: "Set" }); if (p) { await api(`/api/users/${pw.dataset.pw}`, { method: "PATCH", body: { password: p } }); toast("Password set. They need to sign in again with it."); } }
+      if (off) { await api(`/api/users/${off.dataset.off}`, { method: "PATCH", body: { disabled: off.dataset.v === "1" } }); drawPeople(); }
+      if (del && await confirmBox("Remove this person?", "They can't sign in any more. Documents and notes they added stay.", { ok: "Remove", danger: true })) { await api(`/api/users/${del.dataset.del}`, { method: "DELETE" }); drawPeople(); }
+    };
+    els.addPerson.onclick = () => {
+      const box = modal(`<h1 style="font-size:17px">Add someone</h1><form style="display:grid;gap:12px">
+        <label class="field">Their name<input class="input" name="display_name" required></label>
+        <label class="field">Name they sign in with<input class="input" name="username" autocapitalize="none" required></label>
+        <label class="field">A password for them <span class="faint">(at least 8 characters; they can change it later)</span><input class="input" name="password" type="password" minlength="8" required></label>
+        <label class="field">What they may do<select class="input" name="role"><option value="member">Can add and edit: add, sort and change documents</option><option value="readonly">Can only look: browse, search and ask</option><option value="admin">Can do everything: also settings and people</option></select></label>
+        <div class="acts"><button type="button" class="btn" data-x>Cancel</button><button class="btn primary">Add</button></div></form>`);
+      const f = box.querySelector("form");
+      f.display_name.oninput = () => (f.username.value = f.display_name.value.trim().toLowerCase().replace(/\s+/g, "."));
+      box.querySelector("[data-x]").onclick = closeModal;
+      f.onsubmit = async (e) => { e.preventDefault(); await api("/api/users", { method: "POST", body: Object.fromEntries(new FormData(f)) }); closeModal(); drawPeople(); };
+    };
+    drawPeople();
+  }
+
+  // ---------- household (spec C.6) ----------
+  if (sec === "household") {
+    let household = (s.household_people || []).map((p) => ({ names: [...(p.names || [])], words: [...(p.words || [])], user_ids: [...(p.user_ids || [])] }));
+    async function drawHousehold() {
+      if (me?.role !== "admin") return;
+      const users = await api("/api/users").catch(() => []);
+      els.household.innerHTML = household.map((p, i) => `<div class="item"><span class="main" style="display:grid;gap:6px;flex:1">
+        <input class="input" data-hh="names" data-i="${i}" value="${esc(p.names.join(", "))}" placeholder="The names on their papers, comma-separated">
+        <input class="input" data-hh="words" data-i="${i}" value="${esc(p.words.join(", "))}" placeholder="What others call them, comma-separated (Dad, …)">
+        <select class="input" data-hh="user" data-i="${i}" style="max-width:320px"><option value="">No account linked (“my” won't mean them)</option>
+          ${users.map((u) => `<option value="${u.id}" ${p.user_ids.includes(u.id) ? "selected" : ""}>${esc(u.display_name)} (${esc(u.username)})</option>`).join("")}</select>
+        </span><button type="button" class="btn ghost sm" data-hh-del="${i}">Remove</button></div>`).join("") ||
+        `<div class="item"><span class="main muted">Nobody yet. Add the people your papers are about.</span></div>`;
+    }
+    function readHousehold() {
+      for (const inp of els.household.querySelectorAll("[data-hh]")) {
+        const p = household[+inp.dataset.i], field = inp.dataset.hh;
+        if (field === "names") p.names = inp.value.split(",").map((w) => w.trim()).filter(Boolean);
+        if (field === "words") p.words = inp.value.split(",").map((w) => w.trim()).filter(Boolean);
+        if (field === "user") p.user_ids = inp.value ? [+inp.value] : [];
+      }
+    }
+    els.household.onchange = readHousehold;
+    els.household.onclick = (e) => {
+      const del = e.target.closest("[data-hh-del]");
+      if (del) { readHousehold(); household.splice(+del.dataset.hhDel, 1); drawHousehold(); }
+    };
+    els.addHousehold.onclick = () => { readHousehold(); household.push({ names: [], words: [], user_ids: [] }); drawHousehold(); };
+    els.saveHousehold.onclick = async () => {
+      readHousehold();
+      const clean = household.filter((p) => p.names.length);
+      Object.assign(s, await api("/api/settings", { method: "PUT", body: { household_people: clean } }));
+      household = clean; drawHousehold(); toast("Household saved");
+    };
+    drawHousehold();
+  }
+
+  // ---------- reading ----------
+  if (sec === "reading") {
+    const langs = await api("/api/ocr/languages", { quiet: true }).catch(() => []);
+    const chosen = new Set((s.ocr_language || "eng").split("+"));
+    els.langs.innerHTML = langs.map((l) => `<label class="chip"><input type="checkbox" value="${esc(l)}" ${chosen.has(l) ? "checked" : ""}> ${esc(LANG_NAMES[l] || l)}</label>`).join("");
+    els.readForm.date_order.value = s.date_order;
+    els.readForm.onsubmit = async (e) => {
+      e.preventDefault();
+      await api("/api/settings", { method: "PUT", body: { date_order: els.readForm.date_order.value,
+        ocr_language: [...els.langs.querySelectorAll("input:checked")].map((x) => x.value).join("+") || "eng" } });
+      toast("Saved. Documents added from now on are read this way.");
+    };
+  }
+  // ---------- updates ----------
+  let updPoll = null, importPoll = null;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function checkNow(btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Checking for a new version…`;
+    // ask GitHub now; wait a moment at least, so the check is seen to happen
+    const [u] = await Promise.all([api("/api/update?force=true", { quiet: true }).catch(() => null), sleep(700)]);
+    if (!u) { toast("Couldn't check: PaperJay didn't answer."); btn.disabled = false; btn.textContent = "Check for a new version"; return; }
+    if (u.error && !u.latest) toast(`Couldn't check for a new version: ${u.error}.`);
+    else if (u.newer) toast(`PaperJay ${u.latest} is available (you have ${u.current}).`);
+    else if (u.error) toast(`Couldn't reach GitHub just now; the newest version seen was ${u.latest}.`);
+    else toast(`You have the newest version (${u.current}).`);
+    refreshUpdateNotice();
+    drawUpdates(u);
+  }
+  async function drawUpdates(given) {
+    const u = given || await api("/api/update", { quiet: true }).catch(() => null);
+    if (!u) { els.upd.innerHTML = `<span class="faint">Couldn't load the update information.</span>`; return; }
+    if (!els.upd.isConnected) return;
+    const st = u.status || {};
+    const busy = st.state === "running";
+    const lxc = u.install === "lxc";
+    const auto = await api("/api/settings", { quiet: true }).then((s) => s.update_check).catch(() => true);
+    els.upd.innerHTML = `<div>You have version <b>${esc(u.current)}</b>${u.latest && u.newer ? ` · version <b>${esc(u.latest)}</b> is out` : ""}
+        ${u.newer ? `<span class="chip accent">Update available</span>` : u.latest && !u.error ? `<span class="chip good">Up to date</span>` : ""}</div>
+      ${u.error ? `<div class="faint small">Couldn't check for a newer version (${esc(u.error)}).</div>` : ""}
+      ${st.state && !busy ? `<div class="small" style="color:${st.state === "ok" ? "var(--good)" : st.state === "failed" ? "var(--bad)" : "var(--muted)"}">Last update: ${esc(st.message || st.state)}</div>` : ""}
+      ${u.newer && lxc ? `<div><button class="btn primary" id="updBtn" ${busy ? "disabled" : ""}>Update to ${esc(u.latest)}</button>
+        <div class="faint small" style="margin-top:6px">Your documents are backed up first, and if the new version doesn't start, PaperJay goes back to this one by itself.</div></div>` : ""}
+      <div id="updProgress" class="small" ${busy ? "" : "hidden"} role="status"></div>
+      ${u.newer && !lxc ? `<div class="small">To update, run this on the computer PaperJay runs on: <code>${esc(u.how)}</code></div>` : ""}
+      ${u.notes && u.newer ? `<details><summary class="small">What's new</summary><div class="small muted" style="white-space:pre-wrap">${esc(u.notes)}</div></details>` : ""}
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn sm" id="updCheck" ${busy ? "disabled" : ""}>Check for a new version</button>
+        ${u.checked_at ? `<span class="faint small">Last checked ${esc(ago(u.checked_at * 1000))}</span>` : ""}</div>
+      <label class="check"><input type="checkbox" id="updAuto" ${auto ? "checked" : ""}><span>Check by myself every few hours<div class="help">When a new version comes out, people who can change settings see a note at the top of PaperJay.</div></span></label>`;
+    $("#updCheck", view).onclick = (e) => checkNow(e.currentTarget);
+    $("#updAuto", view).onchange = async (e) => {
+      await api("/api/settings", { method: "PUT", body: { update_check: e.target.checked } });
+      toast(e.target.checked ? "PaperJay checks for new versions every few hours." : "PaperJay won't check by itself; use the button.");
+    };
+    const b = $("#updBtn", view);
+    if (b) b.onclick = async () => {
+      if (!await confirmBox(`Update to ${u.latest}?`, "PaperJay is unavailable for a moment while it updates, usually less than two minutes.", { ok: "Update" })) return;
+      const r = await api("/api/update", { method: "POST", body: { tag: u.latest } }).catch(() => null);
+      if (!r) return;
+      b.disabled = true; $("#updCheck", view).disabled = true;
+      watchUpdate(u.current, u.latest, st.at);
+    };
+    if (busy) watchUpdate(u.current, st.tag, null);
+  }
+  // Follow an update: the root updater's steps, then the restart. Done when PaperJay answers with a new version.
+  function watchUpdate(from, to, lastAt) {
+    const box = $("#updProgress", view);
+    const show = (text) => { if (box) { box.hidden = false; box.innerHTML = `<span class="spin" aria-hidden="true"></span>${esc(text)}`; } };
+    show(`Updating to ${to}: starting…`);
+    const started = Date.now();
+    clearInterval(updPoll);
+    updPoll = setInterval(async () => {
+      const h = await fetch("/healthz", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+      if (h && h.version && h.version !== from) {
+        clearInterval(updPoll);
+        sessionStorage.setItem("pj-toast", `Updated: PaperJay ${h.version} is running.`);
+        location.reload();
+        return;
+      }
+      const u = h ? await api("/api/update", { quiet: true }).catch(() => null) : null;
+      const st = u?.status || {};
+      if (st.state === "failed" && st.at !== lastAt) {
+        clearInterval(updPoll);
+        if (box) box.innerHTML = `<span style="color:var(--bad)">${esc(st.message || "The update failed.")}</span>`;
+        toast("The update didn't work; PaperJay is still on " + from + ".");
+        refreshUpdateNotice();
+        setTimeout(() => drawUpdates(u), 4000);
+        return;
+      }
+      if (!h) show(`Updating to ${to}: PaperJay is restarting…`);
+      else if (st.state === "running" && st.message) show(`Updating to ${to}: ${st.message}…`);
+      if (Date.now() - started > 20 * 60 * 1000) {
+        clearInterval(updPoll);
+        if (box) box.innerHTML = `<span style="color:var(--bad)">The update is taking much longer than it should. Reload this page to see where it stands.</span>`;
+      }
+    }, 2000);
+  }
+  if (sec === "updates") drawUpdates();
+
+  // ---------- import ----------
+  if (sec === "import") {
+    const pf = els.plForm;
+    const plBody = () => ({ url: pf.url.value.trim(), token: pf.token.value.trim() });
+    els.plCheck.onclick = async () => {
+      els.plOut.textContent = "Checking…";
+      try {
+        const c = await api("/api/import/paperless/check", { method: "POST", body: plBody() });
+        els.plOut.innerHTML = `<div style="color:var(--good)">✓ ${plural(c.documents, "document")} found${c.already_here ? `, ${c.already_here} already here` : ""}:
+          ${c.without_text ? `${c.without_text} still need their text read (PaperJay does that after bringing them over), ` : ""}
+          ${plural(c.tags, "tag")}, ${plural(c.correspondents, "company", "companies")}, ${plural(c.document_types, "type")}${c.notes ? `, ${plural(c.notes, "note")}` : ""}.</div>`;
+        els.plGo.disabled = c.documents === c.already_here;
+      } catch (e) { els.plOut.innerHTML = `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
+    };
+    async function showImport() {
+      const p = await api("/api/import/status", { quiet: true }).catch(() => null);
+      if (!p || p.state === "idle") return;
+      const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+      els.plOut.innerHTML = `<div>${p.state === "running" ? `Bringing documents over… ${p.done} of ${p.total}` : p.state === "done" ? "Done" : "Stopped: " + esc(p.message || "")}
+        · ${p.imported || 0} brought over${p.duplicates ? `, ${p.duplicates} already here` : ""}${p.failed ? `, <span style="color:var(--bad)">${p.failed} failed</span>` : ""}</div>
+        <div class="progress" style="margin-top:6px"><i style="width:${pct}%"></i></div>
+        ${(p.errors || []).map((e) => `<div class="faint">${esc(e)}</div>`).join("")}`;
+      if (p.state !== "running") { clearInterval(importPoll); importPoll = null; }
+    }
+    pf.onsubmit = async (e) => {
+      e.preventDefault();
+      await api("/api/import/paperless", { method: "POST", body: plBody() });
+      pf.token.value = ""; els.plGo.disabled = true;
+      importPoll = setInterval(showImport, 1500); showImport();
+    };
+    showImport();
+  }
+
+  const stopMail = sec === "email" ? mailSetup(view, me) : () => {};
+  if (location.hash) view.querySelector(location.hash)?.scrollIntoView();
+  return () => { clearInterval(importPoll); clearInterval(updPoll); stopMail(); };
+}

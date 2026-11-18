@@ -1,0 +1,8 @@
+[Unit]
+Description=PaperJay: update to the requested release (and go back if it fails)
+Documentation=https://github.com/3g15h1/paperjay
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/paperjay-update
+TimeoutStartSec=1200

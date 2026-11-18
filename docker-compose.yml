@@ -1,0 +1,29 @@
+# PaperJay with Docker Compose:  docker compose up -d   then open http://<this machine>:8000
+services:
+  paperjay:
+    image: ghcr.io/3g15h1/paperjay:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8443:8443"               # https for the live camera scanner (keep the same number on both sides)
+    volumes:
+      - ./data:/data              # database, files, backups: back this folder up
+      - ./consume:/data/consume   # drop files here (e.g. a scanner's network folder) to add them
+    environment:
+      PUID: "1000"                # the files in ./data are owned by this user and group
+      PGID: "1000"
+      OCR_WORKERS: "1"            # documents read at once; the CPU cores are shared between them
+      TZ: "UTC"                   # your time zone, e.g. America/New_York: nightly mail checks and AI re-reads use it
+      # HTTPS_NAMES: "192.168.1.20, nas.lan"   # this machine's address(es), for the https certificate
+      # Optional AI, also configurable in the app (Settings → AI):
+      # AI_PROVIDER: ollama
+      # AI_URL: http://ollama:11434
+      # AI_MODEL: qwen2.5:3b-instruct
+
+  # Uncomment for a local AI on the same machine (then: docker compose exec ollama ollama pull qwen2.5:3b-instruct
+  # and ollama pull nomic-embed-text). A CPU works; a GPU is much faster. See docs/ai-models.md.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./ollama:/root/.ollama

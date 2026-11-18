@@ -1,0 +1,349 @@
+# Changelog
+
+## 0.5.3
+
+- **PaperJay tells you when a new version is out.** Every few hours it asks GitHub whether there's a newer
+  release. If there is, people who can change settings see a note at the top of every page, with
+  **Update** and **Not now** (and "New" next to Settings). "Not now" hides it until the next release. The
+  automatic check can be switched off in Settings → Updates, or with `UPDATE_CHECK=false`.
+- **"Check for a new version" shows that it's checking.** The button turns into a spinner while PaperJay asks,
+  then says whether a new version is available or you already have the newest one (or why it couldn't
+  check). Updates also shows when it last checked.
+- **The Update button shows each step.** While it updates you see what's happening (backing up your
+  documents' database, installing, restarting) and the page reloads by itself on the new version. If the
+  update fails, the page says so and stays on the version you had.
+- On a Proxmox install from a private repository, PaperJay now reads the GitHub token in
+  `/etc/paperjay/github-token` to see new releases; before, the check (and so the Update button) never
+  found one.
+- A second Update can't be started while one is running.
+
+## 0.5.2
+
+- **Settings is a list now.** The Settings page shows each part (Your account, People, Smart filing,
+  Email, Updates and the rest) as one line, like Tags & companies and Trash. Tap one to open it on its
+  own page; **← Settings** at the top takes you back. Old links to a spot on the long page (such as
+  "Add to calendar" on the start page) open the right part.
+- Tags & companies, Trash and the camera scanner setup also have **← Settings** at the top (on a phone,
+  where you reach them from Settings).
+## 0.5.1
+
+- "Check it works" accepts a server that lists its model under a variant name (for example
+  `qwen3.5-9b-q4_k_m` for `qwen3.5-9b`); such servers answer to the base name.
+- `paperjay fetch-models` (and the updater) no longer prints a line per downloaded file.
+
+## 0.5.0
+
+Search by meaning is built in: no AI program needed for it any more.
+
+- **A built-in model for search by meaning.** PaperJay now runs `nomic-embed-text` v1.5 itself, on the
+  CPU, so "grass cutting" finds the lawn service invoice even with the AI turned off. The model (about
+  130 MB) is downloaded once during install or update (`paperjay fetch-models`), and is inside the Docker
+  image. It is the default for new and existing installs; every document is re-indexed once in the
+  background. Settings → Smart search can still use the AI program's model instead, or turn it off; a
+  model name you had emptied before 0.5 (search by meaning off) stays off.
+- **Better matches.** The built-in model gets nomic's `search_document:` / `search_query:` prefixes, which
+  it was trained with.
+- **"Answer without a thinking step"** (Settings → Smart filing): for reasoning models such as Qwen3 on
+  llama.cpp, vLLM or Ollama, PaperJay asks for the answer without the thinking step, which makes filing
+  and answers several times faster on those models.
+- The AI connection and search by meaning are now independent: changing the AI program or model no longer
+  touches search by meaning, and the connection check tests both.
+## 0.4.4
+
+- **Scanning several pages: one document or separate ones.** Once two or more pages are taken, the
+  scan box asks how to save them: **One document** (as before) or **Separate documents**, one per
+  page. The choice is remembered. With "Keeping the paper?" on, each separate document gets its own
+  paper number.
+
+## 0.4.3
+
+Tidy up: the gaps and doubts in your filing, each fixed with one tap.
+
+- **A "Tidy up" tab on the Review page** lists documents with no company, no date or no type,
+  titles that are just the file name, possible copies, filing the text and the AI disagree
+  on, documents that couldn't be read (with the reason), values filed from a single clue
+  ("Low evidence"), and imported filing PaperJay doesn't learn from until you confirm it.
+  The start page counts them.
+- **One tap fixes a row.** Use the suggested company, type or title, or pick another; for a
+  date, every labelled date the document carries is listed ("Statement Mar 1 · Due Mar 21")
+  with the one PaperJay would pick starred. A fix is your own filing, so the next documents
+  from that company are filed the same way. "Confirm all" and "All look right" do a whole list.
+- **"Not a copy" sticks.** A document wrongly flagged as a copy is never paired with that
+  document again, and Ask and totals count it as its own document.
+- **Settings → Filing → Re-file everything** files every document again from its text and
+  your own filing in seconds, and can also queue an AI re-read (with the time it will take).
+- **Fixed: the Settings page was blank in 0.4.2.** A duplicate name in its script stopped the
+  page from loading. The tests now load every page script the way a browser does.
+- Fixed: "Mark all reviewed" forgot what had been reviewed, so a re-file could raise the same
+  question again. It now behaves like each document's "Looks right".
+
+## 0.4.2
+
+Paper numbers: the shelf and the app agree on where the paper is.
+
+- **Number the paper you keep.** With the new "Paper shelf" setting on, uploading and
+  scanning offer "Keeping the paper? Paper no. …" with the next free number filled in.
+  The number is claimed as the document is added, so two uploads at the same moment can
+  never take the same one. Email and the consume folder get no number unless they pass
+  one. A document's page shows a big "Paper no. N" badge and the number can be set or
+  cleared there; a taken number says so plainly instead of failing silently.
+- **Number several at once.** "Number in order" in the Library gives the selected
+  documents that lack a number the next free numbers, top to bottom.
+- **Find it by number.** `#124` or `paper 124` in the Library search, paper numbers in
+  the search suggestions, and Ask answers "Where's the paper copy of my W-2?" with
+  "Paper no. 57" — the number is one of a document's answerable facts.
+- **Labels you can print.** Avery 5160 and L7160-style sheets, or single 62 mm labels,
+  each with the big number, title, date and a code that opens the document. Blank
+  labels can be printed ahead of time; printing them reserves those numbers, so the
+  next upload steps past them and each reserved number can be claimed exactly once.
+- **Imports keep their numbers.** A Paperless archive serial number becomes the paper
+  number (no longer a line in a note), and documents imported before this release get
+  theirs back from the old note when it is unambiguous. Exports carry the number too,
+  so an export imported elsewhere restores it.
+- One new dependency: `segno` (pure Python) draws the QR codes; the PDFs use `fpdf2`,
+  which was already installed with OCR.
+
+## 0.4.1
+
+Fixes from a review of 0.4.0 — one of them important.
+
+- **A search of all zeros no longer takes the app down.** Typing a search whose digits are
+  all zeros (`00`, `0.`) sent the suggestions into a loop that ate memory until PaperJay
+  died. It now answers instantly, and a number typed with a leading zero no longer offers
+  paper numbers it can't mean.
+- **Ask is less easily fooled by ordinary words.** A first name on its own (Will, May, Bill)
+  used to count as naming that person, so "Will my car insurance renew in May?" quietly
+  favoured one person's papers over everyone else's. A lone first name now has to look
+  like a mention — a possessive, or the capitalised word in the middle of a sentence —
+  before it counts.
+- **Index keys are no longer guessable.** The short keys that link to companies, people and
+  numbers in the A–Z index were a plain hash of the value, which could be worked backwards
+  offline. They are now keyed with a secret kept on the server.
+- Smaller things: startup no longer re-files documents that have nothing to index, saving
+  Household settings no longer fails because of a blank row, and Browse counts only
+  documents that have finished processing, like everywhere else.
+- Numbering note: this fix release takes 0.4.1, so the paper-numbers release planned as
+  0.4.1 becomes 0.4.2, and the Tidy up release planned as 0.4.2 becomes 0.4.3.
+
+## 0.4.0
+
+Finding things, four ways.
+
+- **Browse: walk the filing cabinet.** A new Browse page drills down Category → Company → Year,
+  or starts from Type, Tag, Topic or Year → Month, with a count at every level and an "Unfiled"
+  tray for anything not yet sorted.
+- **The A–Z index.** Inside Browse sits the index at the back of the book: Companies (their other
+  names appear as "see" entries), Numbers, People and Topics. Numbers show only their last 4 —
+  tap Reveal to see one in full (the reveal is written to the history), and typing part of a
+  number finds it without unmasking the list.
+- **Search that knows your library.** The search box (in the sidebar; the magnifier button on the
+  phone, or press /) suggests companies, numbers, people, topics, types, tags, paper numbers,
+  years and matching documents as you type, each with its document count. Choosing one opens the
+  library already filtered to it; ↑ and ↓ move through the list, and a question-shaped search
+  offers to ask PaperJay instead.
+- **Ask understands names.** When a question names a company, a person, a topic or a kind of
+  document — or a number by its last digits ("the account ending 4821") — those documents count
+  for more and the rest for less. Nothing is ever hidden by it.
+- **Household people.** Settings → Household lists the people your documents are about, the other
+  names they go by ("Dad", a name older papers use), and optionally which PaperJay account is
+  theirs — after which "my insurance papers" asked from that account means their papers.
+- **More library filters, and a place on the shelf.** Category and "on the paper shelf" join the
+  filter panel. A document can carry a paper number — where its physical copy sits — unique
+  whenever one is set.
+- Under the hood: a new index table (migration 0008) is kept current at every refile, and the
+  suggestions were re-measured and sped up on a 20,000-document library.
+
+## 0.3.2
+
+Fixes from the first weeks of 0.3 on a real library.
+
+- **Companies are only filed by names that really are the sender.** A tax agency addressed in a
+  lawyer's fax, or the Secretary of State in an insurance card's fine print, no longer becomes the
+  document's company. Agencies, card networks and carriers count only in the letterhead, and the
+  company a document is already filed under is kept when its name is in the text. A well-known
+  company PaperJay doesn't have yet is now only suggested, never created on its own; with the AI on,
+  it is filed once the AI agrees. A text pattern alone never replaces a company or type a document
+  already has: it is suggested for review instead.
+- **Fewer review flags, and "reviewed" sticks.** Only a disagreement or a missing answer about the
+  company, the kind of document or its date asks for review; a shaky category or total is kept as a
+  suggestion. Once you mark a document reviewed, it is flagged again only for a reason you haven't
+  seen (reviews done in 0.3.0/0.3.1 are read back from the history).
+- **AI re-reads happen once, at night, in your time zone.** A document is re-read at most once per
+  reading version, only when its company, kind or date is missing or disputed, and a read that failed
+  waits a week. The installer gives the container the host's time zone (`TZ`), so quiet hours and
+  mailbox checks follow your clock; Docker users set `TZ` in docker-compose.yml.
+- **The AI-filing switch works again, and the history shows what the AI set.** With AI filing off,
+  values only the AI found are not filed; changes that include the AI's value are recorded as the AI's.
+- **Titles.** A title that is only a file name ("Receipt48213377", "ABCInsuranceIDCardAuto") never wins
+  over a real one, and generated titles name the document's company, not a "Bill to" line.
+- Series keys keep the kind of document; an invoice number no longer lumps a company's invoices and
+  receipts into one series. The AI's reply has more room (it was sometimes cut off mid-answer).
+- Names learned as aliases never include agencies or well-known companies.
+
+## 0.3.1
+
+- **Your library now helps file new documents.** When several documents you filed yourself agree on
+  a company — because they share an account or policy number, came from the same sender, or simply
+  read alike — a new document that matches them is filed the same way, with the reason written in
+  plain words ("filed like 3 earlier documents from the same account"). Only filing you confirmed
+  yourself teaches the library: companies an import or the AI suggested never vote until you've
+  confirmed one by hand. Changing a document's company by hand teaches the alternative name as an
+  alias, so next time it's recognised on sight. (Settings: whether an import's filing may ever be
+  trusted; labels pages list and remove aliases.)
+- **Copies are spotted and set aside.** A near-duplicate of an earlier document is flagged for
+  review as "looks like a copy", is left out of totals, and is never the document Ask reads from.
+  Real series — monthly bills, yearly insurance cards — are not copies and are never flagged: a
+  document whose dates or total contradict the earlier one is a new member of the series, not a
+  copy. Ask also treats a series as one thing for "current/latest" questions: one source card for
+  the newest member, with "+N earlier" noting the rest.
+- **The AI reads with context.** Its prompt now includes what the text patterns read and how
+  similar documents were filed, it files topics from your vocabulary (at most three) and people
+  exactly as labelled in the text ("Patient: ..."), and its older cards stay valid — only
+  documents whose profile still has a real gap (a disagreement, a low-evidence field, no company,
+  no topics) are re-read, in bulk, inside the quiet hours (`ai_batch_hours`, default 01:00–06:00).
+  An admin can re-read everything from the API after seeing the time estimate (~40 s a document).
+
+## 0.3.0
+
+- **Your documents get filed and answered even with the AI off.** A new rules layer reads the text
+  itself — company names, "amount due", labelled dates, account and policy numbers — and files from
+  it in well under a second per document, no model involved. Ask answers fact and total questions
+  from these patterns exactly as it does from the AI.
+- **Every document now has one profile** that merges what the rules, your own filing and the AI each
+  say, keeping the source and confidence of every field. Your filing always wins; when the rules and
+  the AI disagree, the disagreement is flagged for review instead of silently picked; a value only
+  one source supports below its bar becomes a suggestion, not a filing.
+- **Documents are findable by what they're about.** A statement from a dental office is filed under a
+  "dental" topic, so "what did the dentist charge?" finds it even though its text never says the word
+  dentist. Around sixty built-in topics (bills, prescriptions, warranties, travel…) plus your own,
+  in Settings.
+- **File-name titles and scan dates are given back.** Titles an import carried over that are really
+  file names ("IMG_4021", "Scan0042") no longer block a proper title, and a document date that is
+  just the day the page was scanned is released when the text carries a labelled date of its own.
+  Each release is written in the document's history and can be undone by renaming it yourself.
+- New settings: rules filing on/off, whether a glimpsed company name may create a company, and
+  custom topics. Filing/eval tooling: `scripts/filing_eval.py --layers` and `scripts/ask_eval.py`
+  score a library copy against a truth file and a questions file.
+
+## 0.2.5
+
+- **"How much have I spent on medical bills so far?"** now gets an answer. Filler words like "so far", "yet"
+  and "overall" no longer count as words a document must contain, and "bills", "invoices", "statements" and
+  "receipts" aren't mistaken for a company's name in totals.
+- **Totals only count what the document itself supports.** A document filed under a category by the AI is
+  left out of that category's total when its text doesn't back it up (a car registration filed as medical),
+  and price lists, fee schedules and estimates are set aside as "not a payment", with the reason shown.
+- Short abbreviations ("MD", "DDS", "lab") only count as evidence of a category as whole words, and not as a
+  state in an address ("Springfield, MD 21000").
+
+## 0.2.4
+
+- **New logo and app icon.** A P and a J hooked into each other, slanted, with a blue jay's crest over the P
+  (its round top is the jay's head). New app icons for iPhone, Android (round masks included) and the browser
+  tab (a bolder version for tiny sizes), and a "PaperJay" wordmark in the sidebar and on the sign-in and setup
+  pages that follows the light and dark themes.
+- Brand files in `docs/brand/` (the mark for dark and light backgrounds, one-colour versions, lockups) with
+  a short usage note; `scripts/make_icons.py` renders the PNG icons from the SVG artwork.
+
+## 0.2.3
+
+- **Adding a mailbox takes three steps**: type your email address (the provider and server are worked out
+  for you), make an app password (the steps for your provider and a button to the right page), and tick the
+  senders PaperJay found sending you PDFs and photos in the last four months. It then collects their
+  documents straight away. Outlook/Microsoft 365 and Proton say up front what works instead.
+- Clearer message when a mail server refuses the password.
+
+## 0.2.2
+
+- **Settings in plain words.** Every section starts with a sentence on what it's for, and every option says
+  what it does without technical terms ("Can add and edit" instead of "member", "access keys" instead of
+  "API tokens", language names instead of codes, "Smart search model" instead of "embedding model").
+  Technical options (processor cores, access keys, nightly export command) fold away under **Advanced**.
+  The AI check explains what to do when something's missing. On phones the People list and password form
+  no longer squeeze.
+
+## 0.2.1
+
+- **Library on phones**: the header (title, count, grid/list, Select) stays on one line on small phones;
+  filters fold away behind a **Filters** button (showing how many are in use) and open as an even
+  two-column grid with labelled From/To dates; cards show two-line titles with the company and date, and
+  their tags line up across a row; the list view's Review chip no longer squeezes the text; the select bar
+  is an even grid.
+- Camera scanner: the shutter button stays centred before the first photo.
+
+## 0.2.0
+
+- **Live camera scanner.** The page's outline follows the page while you aim, and the photo is taken by
+  itself when you hold still (or with the button: **Auto** / **Manual**), page after page without leaving
+  the camera. Tap a page afterwards to adjust its corners or look. Pages are sent while you take the next.
+- **PaperJay's own HTTPS** (`HTTPS_PORT`, default 8443; 443 in the Proxmox container), because phones only
+  allow the live camera over https. It makes a certificate authority of its own that can only vouch for
+  home-network addresses; **Settings → Secure address** walks each phone through trusting it once
+  (a profile for iPhone, a certificate for Android and computers). The certificate renews itself and
+  covers the addresses PaperJay is opened at. Without it, the camera button works as before.
+- **Documents from email.** Settings → Email: add mailboxes (IMAP with an app password), filter by sender
+  and subject, and PaperJay checks them every night (02:30 by default) and adds the attached PDFs and photos;
+  afterwards it leaves the email, marks it read or moves it. Each email is taken once. Guide: docs/email.md.
+- Back gestures that stay on the same page (closing the camera) no longer reload it.
+
+## 0.1.2
+
+- **Document scanner** for the camera: the page is found in the photo automatically (corners can be
+  dragged), cut out and straightened, shadows and uneven light are evened out, and it's saved in black &
+  white (the fax/scanner look, tiny files), grayscale or color. Several pages make one PDF.
+
+- Installer: the container gets DNS servers it can actually reach. A host using Tailscale's MagicDNS
+  or a local resolver (127.x) left new containers unable to resolve names, so the
+  install waited forever; such addresses are now skipped (falling back to 1.1.1.1 and 9.9.9.9),
+  `--nameserver` sets them explicitly, and the network wait gives up with a clear message after a minute.
+
+## 0.1.1
+
+Beta 2: first version installed for real.
+
+- Guides: installing, moving from Paperless-ngx, phones, Home Assistant, backups, export format, API;
+  a new README with screenshots and a comparison; SECURITY.md and issue templates.
+- `/api/upcoming` links are full addresses (for Home Assistant notifications).
+- Instant answers no longer repeat a word ("Example Mutual Insurance insurance"); sources only show a
+  category the text backs up; the installer silences locale warnings.
+
+## 0.1.0
+
+First private beta.
+
+### Added
+- Storage core: SQLite schema v1 (documents, tags, correspondents, document types, notes, users,
+  audit log, job queue, embeddings, settings) with numbered migrations and automatic backups.
+- File store named by sha256, with atomic, fsynced writes.
+- Library: add, edit (tracking AI-set fields), notes, trash/restore/purge, label rename/merge/delete,
+  full-text search with highlighting and filters.
+- Background job queue with retries, backoff and crash recovery.
+- Embedding storage and search by meaning.
+- `paperjay serve | migrate | check`.
+- Intake: upload API, Paperless-ngx compatible `post_document` + `tasks` endpoints, consume folder;
+  file type checked from content; size and page limits; every attempt recorded (schema v2: uploads).
+- OCR pipeline: OCRmyPDF + Tesseract (rotate, deskew, clean, PDF/A with plain-PDF fallback), photos and
+  HEIC/WebP/TIFF converted to PDF, text with page breaks, thumbnails, page count, date and title found
+  in the text. Tools run in their own process group with a time limit and lower priority.
+- AI, optional: Ollama or any OpenAI-compatible server, settings in the database (`/api/settings`) with a
+  connection test; one request at a time, and questions go before background work.
+- AI filing and fact cards in one call per document, grounded in the text: never overrules a person,
+  only existing tags (and only when their word is in the document), never sets "paid", new companies and
+  tag suggestions go to Needs review (schema v3: facts, suggestions, feedback, document revisions).
+- Answers ported from Paperless Ask: ranking with synonyms and typo matching, cited and checked answers,
+  instant answers, totals, follow-ups, search by meaning, "ask about this document", feedback,
+  coming-up dates and calendar feed. `POST /api/ask` keeps Paperless Ask's request and reply shape.
+- Web app (plain ES modules, no build step): Ask start page, library with filters, saved searches and bulk
+  actions, document page with server-rendered page images, editing, notes and history, upload with
+  multi-page camera scans, Needs review, Trash, label management, settings with an AI connection test,
+  dark and light themes, installable PWA with an Android share target (schema v4: saved searches).
+- `scripts/demo.py` fills a data folder with made-up documents (sign in as demo / demo-password).
+- Sign-in and household accounts (admin, member, read-only), sessions and API tokens (`Token` header
+  like Paperless-ngx, calendar-only tokens), first-run setup wizard (schema v5).
+- Import from Paperless-ngx (API, ids/labels/notes/text/searchable PDFs kept, safe to re-run) and from a
+  PaperJay export; plain-folder export (incremental, `paperjay export DIR`) and a zip download.
+- Docker image (amd64 + arm64, common OCR languages, runs as PUID/PGID) and docker-compose.yml;
+  Proxmox installer `install.sh` (Debian 13 LXC, re-run to upgrade); Update button for the Proxmox install
+  with a database backup first and automatic rollback; release workflow (GHCR image, vulnerability scan,
+  GitHub release); `paperjay backup`.
+- `paperjay add-admin`, `scripts/ocr_compare.py` (compares PaperJay's OCR with imported text; numbers only).

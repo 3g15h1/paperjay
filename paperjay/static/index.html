@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f6f7" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PaperJay">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/static/icons/favicon.png">
+<link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+<link rel="stylesheet" href="/static/app.css?v=__VERSION__">
+<title>PaperJay</title>
+<script>try { const t = localStorage.getItem("pj-theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch {}</script>
+</head>
+<body>
+<div class="shell">
+  <nav class="side" aria-label="Main">
+    <a class="brand" href="/" aria-label="PaperJay"><svg class="logo" viewBox="0 0 712 200" role="img"><title>PaperJay</title><use href="#pj-logo"/></svg></a>
+    <div class="side-search">
+      <input class="input" id="search-input" type="search" placeholder="Search companies, numbers, people…" autocomplete="off">
+      <div class="suggest" id="search-results" hidden></div>
+    </div>
+    <div class="nav" id="nav">
+      <a href="/" data-nav="home"><svg class="i"><use href="#i-ask"/></svg>Ask</a>
+      <a href="/browse" data-nav="browse"><svg class="i"><use href="#i-browse"/></svg>Browse</a>
+      <a href="/library" data-nav="library"><svg class="i"><use href="#i-library"/></svg>Library<span class="count" id="n-docs"></span></a>
+      <a href="/review" data-nav="review"><svg class="i"><use href="#i-review"/></svg>Needs review<span class="count attn" id="n-review"></span></a>
+      <a href="/upload" data-nav="upload" class="write-only"><svg class="i"><use href="#i-upload"/></svg>Add documents<span class="count" id="n-processing"></span></a>
+      <a href="/labels" data-nav="labels"><svg class="i"><use href="#i-tag"/></svg>Tags &amp; companies</a>
+      <a href="/trash" data-nav="trash"><svg class="i"><use href="#i-trash"/></svg>Trash<span class="count" id="n-trash"></span></a>
+      <a href="/settings" data-nav="settings"><svg class="i"><use href="#i-settings"/></svg>Settings<span class="count attn" id="n-update"></span></a>
+    </div>
+    <div class="grow"></div>
+    <div class="foot"><span class="dot" id="ai-dot"></span><span id="ai-text">…</span></div>
+    <div class="foot"><span id="me"></span><button class="btn ghost sm" id="signout" style="margin-left:auto">Sign out</button></div>
+  </nav>
+  <main id="view"></main>
+</div>
+<nav class="tabs" aria-label="Main">
+  <a href="/" data-nav="home"><svg class="i"><use href="#i-ask"/></svg>Ask</a>
+  <a href="/browse" data-nav="browse"><svg class="i"><use href="#i-browse"/></svg>Browse</a>
+  <a href="/library" data-nav="library"><svg class="i"><use href="#i-library"/></svg>Library</a>
+  <a href="/upload" data-nav="upload" class="add write-only"><span class="plus"><svg class="i"><use href="#i-plus"/></svg></span></a>
+  <a href="/review" data-nav="review"><svg class="i"><use href="#i-review"/></svg>Review<span class="badge-dot" id="t-review" hidden></span></a>
+  <a href="/settings" data-nav="settings more"><svg class="i"><use href="#i-more"/></svg>More<span class="badge-dot" id="t-update" hidden></span></a>
+</nav>
+<div id="overlay"></div>
+<button id="search-fab" aria-label="Search"><svg class="i"><use href="#i-search"/></svg></button>
+<div id="search-overlay" hidden>
+  <div class="search-sheet card">
+    <input class="input" id="m-search-input" type="search" placeholder="Search companies, numbers, people…" autocomplete="off">
+    <div class="suggest static" id="m-search-results" hidden></div>
+  </div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-ask" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.6-.8 1.1v.5"/><path d="M12 16.5h.01"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="16" rx="1.5"/><path d="M6.5 8h0M17.5 8h0"/></symbol>
+  <symbol id="i-browse" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M10 7.5h4M10 16.5h4"/></symbol>
+  <symbol id="i-review" viewBox="0 0 24 24"><path d="M9 11l2 2 4-4"/><path d="M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></symbol>
+  <symbol id="pj-logo" viewBox="0 0 712 200"><svg x="0" y="0" width="178.6" height="200" viewBox="148.0 147.0 686.0 768.0">
+<g transform="translate(30 -14)">
+  <g transform="translate(512 512) skewX(-10) scale(2.65) translate(-232 -146)">
+    <path style="fill:var(--text)" d="M195 226 V121 A61 61 0 1 1 277 178.27 V155.04 A40 40 0 1 0 216 121 V226 Z"/>
+    <path style="fill:var(--accent)" transform="rotate(180 225.5 171.5)" d="M195 226 V121 A61 61 0 1 1 277 178.27 V155.04 A40 40 0 1 0 216 121 V226 Z"/>
+    <path style="fill:var(--accent)" transform="translate(178 22) scale(0.6) translate(-238 -153)" d="M243 152.6 C262 155.2 330 161 392 161.8 C425 163 448 178 455 196 C458 204 456 211 451 211 C440 206 425 196.5 400 194.3 C360 194 320 205 290 204 C268 203 251 192 244 181 C239 173 237.6 163 238.6 157.5 C239.2 154 240.6 152.4 243 152.6 Z"/></g>
+  </g>
+</svg>
+  <g transform="translate(214.6 139.4)">
+    <g style="fill:var(--text)"><path d="M19.264 -29.232V-41.664H37.52Q41.104 -41.664 44.016000000000005 -43.120000000000005Q46.928000000000004 -44.576 48.608000000000004 -47.32Q50.288000000000004 -50.064 50.288000000000004 -53.984Q50.288000000000004 -57.792 48.608000000000004 -60.592Q46.928000000000004 -63.392 44.016000000000005 -64.848Q41.104 -66.304 37.52 -66.304H19.264V-78.736H39.088Q46.592 -78.736 52.584 -75.712Q58.576 -72.688 62.048 -67.144Q65.52 -61.6 65.52 -53.984Q65.52 -46.368 62.048 -40.824Q58.576 -35.28 52.584 -32.256Q46.592 -29.232 39.088 -29.232ZM8.064 0.0V-78.736H23.296V0.0Z"/><path d="M95.64800000000001 1.12Q88.256 1.12 82.32 -2.576Q76.384 -6.272 73.024 -12.655999999999999Q69.664 -19.04 69.664 -26.992Q69.664 -35.056 73.024 -41.44Q76.384 -47.824 82.32 -51.519999999999996Q88.256 -55.216 95.64800000000001 -55.216Q101.47200000000001 -55.216 106.06400000000001 -52.864000000000004Q110.656 -50.512 113.4 -46.312Q116.144 -42.112 116.36800000000001 -36.848V-17.36Q116.144 -11.984 113.4 -7.84Q110.656 -3.696 106.06400000000001 -1.288Q101.47200000000001 1.12 95.64800000000001 1.12ZM98.33600000000001 -12.432Q104.49600000000001 -12.432 108.304 -16.52Q112.11200000000001 -20.608 112.11200000000001 -27.104Q112.11200000000001 -31.36 110.376 -34.664Q108.64000000000001 -37.968 105.56 -39.816Q102.48 -41.664 98.33600000000001 -41.664Q94.304 -41.664 91.224 -39.816Q88.144 -37.968 86.40800000000002 -34.664Q84.67200000000001 -31.36 84.67200000000001 -27.104Q84.67200000000001 -22.736 86.40800000000002 -19.432000000000002Q88.144 -16.128 91.224 -14.280000000000001Q94.304 -12.432 98.33600000000001 -12.432ZM111.328 0.0V-14.56L113.68 -27.776L111.328 -40.768V-54.096000000000004H125.888V0.0Z"/><path d="M168.89600000000002 1.12Q163.072 1.12 158.368 -1.288Q153.66400000000002 -3.696 150.86400000000003 -7.84Q148.06400000000002 -11.984 147.84 -17.36V-36.512Q148.06400000000002 -41.888 150.92000000000002 -46.088Q153.776 -50.288000000000004 158.424 -52.752Q163.072 -55.216 168.89600000000002 -55.216Q176.4 -55.216 182.336 -51.519999999999996Q188.27200000000002 -47.824 191.68800000000002 -41.44Q195.104 -35.056 195.104 -26.992Q195.104 -19.04 191.68800000000002 -12.655999999999999Q188.27200000000002 -6.272 182.336 -2.576Q176.4 1.12 168.89600000000002 1.12ZM138.88000000000002 22.624V-54.096000000000004H153.55200000000002V-39.872L151.08800000000002 -26.768L153.44000000000003 -13.664V22.624ZM166.32000000000002 -12.432Q170.35200000000003 -12.432 173.48800000000003 -14.280000000000001Q176.62400000000002 -16.128 178.36 -19.432000000000002Q180.096 -22.736 180.096 -27.104Q180.096 -31.36 178.36 -34.664Q176.62400000000002 -37.968 173.48800000000003 -39.816Q170.35200000000003 -41.664 166.32000000000002 -41.664Q162.4 -41.664 159.264 -39.816Q156.12800000000001 -37.968 154.392 -34.664Q152.656 -31.36 152.656 -27.104Q152.656 -22.736 154.392 -19.432000000000002Q156.12800000000001 -16.128 159.20800000000003 -14.280000000000001Q162.288 -12.432 166.32000000000002 -12.432Z"/><path d="M230.608 1.12Q222.096 1.12 215.488 -2.52Q208.88 -6.16 205.01600000000002 -12.544Q201.15200000000002 -18.928 201.15200000000002 -27.104Q201.15200000000002 -35.168 204.904 -41.495999999999995Q208.656 -47.824 215.15200000000002 -51.576Q221.64800000000002 -55.328 229.60000000000002 -55.328Q237.44 -55.328 243.43200000000002 -51.8Q249.424 -48.272 252.84000000000003 -42.168Q256.25600000000003 -36.064 256.25600000000003 -28.336000000000002Q256.25600000000003 -26.88 256.088 -25.368000000000002Q255.92000000000002 -23.856 255.472 -21.952L210.0 -21.84V-32.816L248.64000000000001 -32.928L242.704 -28.336000000000002Q242.48000000000002 -33.152 240.96800000000002 -36.400000000000006Q239.45600000000002 -39.648 236.60000000000002 -41.384Q233.744 -43.12 229.60000000000002 -43.12Q225.232 -43.12 221.984 -41.16Q218.73600000000002 -39.2 217.0 -35.672Q215.264 -32.144 215.264 -27.328Q215.264 -22.400000000000002 217.11200000000002 -18.76Q218.96 -15.120000000000001 222.43200000000002 -13.16Q225.904 -11.200000000000001 230.496 -11.200000000000001Q234.64000000000001 -11.200000000000001 238.0 -12.600000000000001Q241.36 -14.0 243.824 -16.8L252.448 -8.176Q248.52800000000002 -3.584 242.872 -1.232Q237.216 1.12 230.608 1.12Z"/><path d="M265.328 0.0V-54.096000000000004H280.0V0.0ZM280.0 -29.904 274.288 -33.712Q275.296 -43.68 280.11199999999997 -49.448Q284.928 -55.216 294.0 -55.216Q297.92 -55.216 301.05600000000004 -53.928Q304.192 -52.64 306.768 -49.728L297.584 -39.2Q296.352 -40.544000000000004 294.616 -41.216Q292.88 -41.888 290.64 -41.888Q285.936 -41.888 282.96799999999996 -38.92Q280.0 -35.952 280.0 -29.904Z"/></g>
+    <g style="fill:var(--accent)"><path d="M331.18399999999997 1.12Q324.016 1.12 318.584 -1.624Q313.152 -4.368 309.568 -9.072000000000001L319.872 -18.928Q321.888 -16.016000000000002 324.744 -14.504000000000001Q327.6 -12.992 331.072 -12.992Q334.544 -12.992 337.176 -14.448Q339.808 -15.904 341.20799999999997 -18.704Q342.608 -21.504 342.608 -25.536V-78.736H357.952V-26.432000000000002Q357.952 -18.144000000000002 354.648 -11.928Q351.344 -5.712 345.352 -2.296Q339.36 1.12 331.18399999999997 1.12Z"/><path d="M394.016 1.12Q386.624 1.12 380.688 -2.576Q374.752 -6.272 371.39200000000005 -12.655999999999999Q368.03200000000004 -19.04 368.03200000000004 -26.992Q368.03200000000004 -35.056 371.39200000000005 -41.44Q374.752 -47.824 380.688 -51.519999999999996Q386.624 -55.216 394.016 -55.216Q399.84000000000003 -55.216 404.432 -52.864000000000004Q409.024 -50.512 411.76800000000003 -46.312Q414.512 -42.112 414.736 -36.848V-17.36Q414.512 -11.984 411.76800000000003 -7.84Q409.024 -3.696 404.432 -1.288Q399.84000000000003 1.12 394.016 1.12ZM396.704 -12.432Q402.86400000000003 -12.432 406.672 -16.52Q410.48 -20.608 410.48 -27.104Q410.48 -31.36 408.744 -34.664Q407.00800000000004 -37.968 403.928 -39.816Q400.848 -41.664 396.704 -41.664Q392.672 -41.664 389.592 -39.816Q386.512 -37.968 384.776 -34.664Q383.04 -31.36 383.04 -27.104Q383.04 -22.736 384.776 -19.432000000000002Q386.512 -16.128 389.592 -14.280000000000001Q392.672 -12.432 396.704 -12.432ZM409.696 0.0V-14.56L412.048 -27.776L409.696 -40.768V-54.096000000000004H424.25600000000003V0.0Z"/><path d="M454.272 0.448 431.648 -54.096000000000004H447.552L462.56 -12.432H457.184L472.752 -54.096000000000004H488.76800000000003L464.688 0.448ZM439.264 22.624 455.728 -12.208 464.688 0.448 454.832 22.624Z"/></g></g></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 11v9H4v-9z"/><path d="M7 11l4-8a2 2 0 0 1 2 2v4h5.5a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.3 20H7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M17 13V4h3v9z"/><path d="M17 13l-4 8a2 2 0 0 1-2-2v-4H5.5a2 2 0 0 1-2-2.3l1.2-7A2 2 0 0 1 6.7 4H17"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-rows" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M15.5 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></symbol>
+</svg>
+<script type="module" src="/static/js/app.js?v=__VERSION__"></script>
+</body>
+</html>

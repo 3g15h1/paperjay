@@ -1,0 +1,23 @@
+[Unit]
+Description=PaperJay document archive
+Documentation=https://github.com/3g15h1/paperjay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=paperjay
+Group=paperjay
+EnvironmentFile=/etc/paperjay/env
+ExecStart=/opt/paperjay/current/venv/bin/paperjay serve
+Restart=on-failure
+RestartSec=5
+# port 80 without running as root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/paperjay
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

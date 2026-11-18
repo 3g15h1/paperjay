@@ -1,0 +1,44 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng ghostscript unpaper poppler-utils pngquant fonts-dejavu-core
+      - run: pip install -e '.[test]'
+      - run: pytest -q
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck -S warning install.sh deploy/update.sh deploy/paperjay-update deploy/docker-entrypoint.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pip-audit && pip-audit .
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the image (amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: paperjay:ci
+      - name: The image starts and answers
+        run: |
+          docker run -d --name pj -p 8000:8000 paperjay:ci
+          for i in $(seq 1 30); do curl -fs localhost:8000/healthz && break; sleep 2; done
+          curl -fs localhost:8000/healthz | grep -q '"ok":true'
+          docker exec pj tesseract --list-langs | grep -q deu
+          docker exec pj sh -c 'stat -c %u /data' | grep -qx 1000
+          docker logs pj | tail -n 20

@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# Root side of the settings page's Update button. Run by paperjay-update.service when PaperJay writes a
+# release tag to /var/lib/paperjay/update-request. Installs it with update.sh, checks PaperJay answers,
+# and otherwise switches back to the previous release and restores the database backup update.sh made.
+# The outcome goes to /var/lib/paperjay/update-status.json for the settings page.
+set -uo pipefail
+STATE=/var/lib/paperjay
+REQ=$STATE/update-request
+STATUS=$STATE/update-status.json
+ROOT=/opt/paperjay
+LOG=$(mktemp)
+trap 'rm -f "$LOG"' EXIT
+
+status() {  # status <state> <tag> <message>
+  python3 - "$1" "$2" "$3" "$LOG" "$STATUS" <<'PY'
+import json, sys, time
+state, tag, msg, log, out = sys.argv[1:6]
+tail = open(log, errors="replace").read()[-2000:] if state != "running" else ""
+json.dump({"state": state, "tag": tag, "message": msg, "at": time.time(), "log": tail}, open(out + ".tmp", "w"))
+PY
+  mv "$STATUS.tmp" "$STATUS"; chown paperjay:paperjay "$STATUS"; chmod 640 "$STATUS"
+}
+answers() {
+  local port
+  port=$(sed -n 's/^PORT=//p' /etc/paperjay/env | tail -n1)
+  for _ in $(seq 1 60); do
+    python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${port:-80}/healthz', timeout=3)" 2>/dev/null && return 0
+    sleep 2
+  done
+  return 1
+}
+
+[ -f "$REQ" ] || exit 0
+TAG=$(head -c 40 "$REQ" | tr -d '[:space:]')
+rm -f "$REQ"
+[[ "$TAG" =~ ^v[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$ ]] || { status failed "" "refused: not a release tag"; exit 1; }
+status running "$TAG" "updating"
+BEFORE=$(readlink "$ROOT/current")
+# update.sh announces each step as "==> ..."; pass those on to the settings page while it works
+if ! bash "$BEFORE/deploy/update.sh" "$TAG" 2>&1 | tee "$LOG" | while IFS= read -r line; do
+      case $line in "==> "*) status running "$TAG" "${line#==> }" ;; esac
+    done; then
+  [ "$(readlink "$ROOT/current")" = "$BEFORE" ] || ln -sfn "$BEFORE" "$ROOT/current"
+  systemctl restart paperjay
+  status failed "$TAG" "the update to $TAG failed; still running the previous version (see the log)"
+  exit 1
+fi
+status running "$TAG" "waiting for the new version to start"
+if answers; then
+  status ok "$TAG" "updated to $TAG"
+  exit 0
+fi
+BACKUP=$(sed -n 's/^BACKUP=//p' "$LOG" | tail -n1)
+systemctl stop paperjay
+ln -sfn "$BEFORE" "$ROOT/current"
+if [ -n "$BACKUP" ] && [ -f "$BACKUP" ]; then
+  cp "$STATE/paperjay.db" "$STATE/paperjay.db.failed-update" 2>/dev/null || true
+  rm -f "$STATE/paperjay.db-wal" "$STATE/paperjay.db-shm"
+  cp "$BACKUP" "$STATE/paperjay.db" && chown paperjay:paperjay "$STATE/paperjay.db"
+fi
+systemctl start paperjay
+status failed "$TAG" "$TAG didn't start, so PaperJay went back to the previous version and its database backup"
+exit 1

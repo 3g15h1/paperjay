@@ -1,0 +1,47 @@
+# API
+
+Everything the app does goes through a JSON API under `/api`. Send an API token
+(**Settings → Your account → Advanced: access keys**) as `Authorization: Token pj_…` (or `Bearer pj_…`). A token acts
+as the account that made it; read-only accounts can only read and ask.
+
+## Adding documents
+
+```sh
+curl -H "Authorization: Token $T" -F file=@bill.pdf http://paperjay:8000/api/documents
+# several photos as one document:
+curl -H "Authorization: Token $T" -F file=@p1.jpg -F file=@p2.jpg -F combine=true http://paperjay:8000/api/documents
+```
+
+Optional form fields: `title`, `doc_date` (YYYY-MM-DD), `tags` (ids, repeat the field), `correspondent_id`,
+`document_type_id`. The reply lists each file's outcome: `accepted` (201), `duplicate` (409) or `rejected`
+(415, with the reason). With the `paper_numbers` setting on, uploads also accept `paper_no`
+(number this document) or `paper_next=true` (claim the next free number); `GET /api/paper/next`
+says which number is next. Paperless-ngx compatible: `POST /api/documents/post_document/` (field `document`;
+its `archive_serial_number` becomes the document's paper number)
+returns a task id; `GET /api/tasks/?task_id=…` reports `PENDING`, `STARTED`, `SUCCESS` or `FAILURE`.
+
+## Asking
+
+```sh
+curl -H "Authorization: Token $T" -H 'Content-Type: application/json' \
+     -d '{"q": "When does my car insurance expire?"}' http://paperjay:8000/api/ask
+```
+
+Reply: `answer` (with `[n]` citations), `mode` (`facts`, `total`, `llm`, `list`, `extractive`, `none`),
+`sources` (`n`, `id`, `title`, `url`, `snippet`, …), `unverified` (numbers the answer has that the sources
+don't). Options: `"no_llm": true`, `"full": true` (skip instant answers), `"prev": {"q", "a"}` for a
+follow-up, `"doc": <id>` to ask about one document. `GET /api/ask/stream?q=…` streams the same as
+Server-Sent Events.
+
+## Other endpoints
+
+| | |
+|---|---|
+| `GET /api/documents?q=&tags=&correspondent_id=&document_type_id=&date_from=&date_to=&sort=` | search and list |
+| `GET /api/documents/{id}`, `PATCH /api/documents/{id}` | one document; change title, date, labels |
+| `GET /api/documents/{id}/original` · `/archive` · `/thumb` · `/pages/{n}` | its files |
+| `POST /api/documents/{id}/notes` · `/trash` · `/restore` · `/reprocess` · `/analyze` | actions |
+| `POST /api/documents/bulk` | `{ids, action, value}`: add_tags, remove_tags, set_correspondent, set_type, trash, … |
+| `GET/POST /api/labels/{tag,correspondent,document_type}` | labels; `PATCH`, `DELETE`, `POST …/merge` |
+| `GET /api/upcoming` · `GET /calendar.ics` | coming-up dates ([home-assistant.md](home-assistant.md)) |
+| `GET /api/summary` · `GET /api/ai/status` · `GET /healthz` | counts and health |

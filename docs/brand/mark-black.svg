@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="148 147 686 768">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17191f"/><stop offset="1" stop-color="#0b0c0f"/></linearGradient>
+  <linearGradient id="front" gradientUnits="userSpaceOnUse" x1="0" y1="150" x2="0" y2="880"><stop offset="0" stop-color="#7db2ff"/><stop offset="1" stop-color="#4f8ff0"/></linearGradient></defs>
+<g transform="translate(30 -14)">
+  <g transform="translate(512 512) skewX(-10) scale(2.65) translate(-232 -146)">
+    <path fill="#18181b" d="M195 226 V121 A61 61 0 1 1 277 178.27 V155.04 A40 40 0 1 0 216 121 V226 Z"/>
+    <path fill="#18181b" transform="rotate(180 225.5 171.5)" d="M195 226 V121 A61 61 0 1 1 277 178.27 V155.04 A40 40 0 1 0 216 121 V226 Z"/>
+    <path fill="#18181b" transform="translate(178 22) scale(0.6) translate(-238 -153)" d="M243 152.6 C262 155.2 330 161 392 161.8 C425 163 448 178 455 196 C458 204 456 211 451 211 C440 206 425 196.5 400 194.3 C360 194 320 205 290 204 C268 203 251 192 244 181 C239 173 237.6 163 238.6 157.5 C239.2 154 240.6 152.4 243 152.6 Z"/></g>
+  </g>
+</svg>
