@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.3
+
+- **Fix pages after a document was added.** On a document's page, **⋯ → Fix pages** shows every page: turn
+  a page that came out sideways or upside down, take out pages you don't want (a blank back, an advert),
+  move pages, or tap ✂ between two pages to split it where a new document starts (two letters scanned
+  as one).
+- **Join documents.** Select documents in the Library, in the order their pages should go, and tap
+  **Join into one** (the front and back of a form scanned separately, or a bill and its second page).
+- PaperJay keeps every original exactly as it arrived, so these never change a file: they make new
+  documents with the same title, date, company, type, tags, notes and paper number, which are read again
+  in a minute or so. The old document goes to the Trash, where you can restore it for 30 days.
+- Access keys need both "create" and "delete" to change pages.
+
 ## 0.7.2
 
 - **Warranties.** PaperJay reads how long a purchase's warranty lasts from the receipt or invoice

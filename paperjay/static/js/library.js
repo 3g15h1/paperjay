@@ -57,6 +57,7 @@ export async function show(view, { query }) {
       <button class="btn sm" data-b="number_in_order">Number in order</button>
       <button class="btn sm" id="printLabels">Print labels</button>
       <button class="btn sm" id="csvPicked">Download list</button>
+      <button class="btn sm" id="joinPicked" title="Join the selected documents into one, in the order you picked them">Join into one</button>
       <button class="btn sm" data-b="analyze">Re-file with AI</button>
       <button class="btn sm danger" data-b="trash">Move to trash</button>
       <button class="btn ghost sm" id="selAll">Select all</button>
@@ -205,6 +206,11 @@ export async function show(view, { query }) {
   els.csvPicked.onclick = () => {
     if (!picked.size) { toast("Pick some documents first"); return; }
     const a = document.createElement("a"); a.href = "/api/documents.csv?ids=" + [...picked].join(","); a.download = ""; a.click();
+  };
+  els.joinPicked.onclick = async () => {
+    if (picked.size < 2) { toast("Pick two or more documents, in the order their pages should go"); return; }
+    const ids = [...picked], byId = Object.fromEntries(results.map((d) => [d.id, d.title]));
+    (await import("./pageeditor.js")).joinDocuments(ids, ids.map((i) => byId[i] || `Document ${i}`));
   };
   els.printLabels.onclick = () => {
     const box = modal(`<h1 style="font-size:17px">Print paper labels</h1>

@@ -342,6 +342,7 @@ _NEEDS = [
     ("POST", _DOC + r"/(restore|reviewed|confirm-fields|confirm-filing|not-a-copy|refile|reprocess|analyze|"
                     r"suggestions/accept|shredded|unshred)", {"update"}),
     ("POST", r"/api/shred/bulk", {"update"}),
+    ("POST", _DOC + r"/edit-pages|/api/documents/merge", {"create"}),   # delete is checked in the endpoint
     ("POST", _LABEL + r"/merge", {"update"}),
     ("POST", r"/api/documents/bulk", {"update", "delete"}),   # the action is checked in the endpoint
     ("POST", _DOC + r"/trash", {"delete"}),

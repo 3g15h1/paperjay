@@ -37,6 +37,8 @@ runs on your own hardware.
   and single facts (*"my policy number?"*) from what was read when the document arrived. If a word appears
   in no document, it says so instead of guessing. The same box finds things: as you type it
   suggests matching companies, people, numbers and documents.
+- **Fixes pages afterwards**: turn, take out, move or split the pages of a document, or join several into
+  one; the originals stay untouched and the old document waits in the Trash.
 - **Scans with your phone's camera**: the page is outlined live and the photo taken when you hold still,
   page after page, then cut out, straightened and cleaned up into one PDF.
 - **Collects emailed documents**: checks your mailboxes every night and adds the PDFs and photos attached

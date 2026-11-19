@@ -44,6 +44,8 @@ Server-Sent Events.
 | `GET /api/documents/{id}`, `PATCH /api/documents/{id}` | one document; change title, date, labels |
 | `GET /api/documents/{id}/original` · `/archive` · `/thumb` · `/pages/{n}` | its files |
 | `POST /api/documents/{id}/notes` · `/trash` · `/restore` · `/reprocess` · `/analyze` | actions |
+| `POST /api/documents/{id}/edit-pages` | `{pages: [{n, rotate, keep}], split_after: [n]}`: turn, take out, reorder, split; returns the new `documents` (the old one goes to the trash) |
+| `POST /api/documents/merge` | `{ids}` in page order: join into one new document |
 | `POST /api/documents/bulk` | `{ids, action, value}`: add_tags, remove_tags, set_correspondent, set_type, trash, … |
 | `GET/POST /api/labels/{tag,correspondent,document_type}` | labels; `PATCH`, `DELETE`, `POST …/merge` |
 | `GET /api/upcoming` · `GET /calendar.ics` | coming-up dates and warranty ends ([home-assistant.md](home-assistant.md)) |

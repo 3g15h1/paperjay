@@ -10,6 +10,8 @@
     POST   /api/trash/empty
     GET    /api/documents/{id}/pages/{n}?w=    one page as an image (works on every browser, unlike embedded PDFs)
     POST   /api/documents/bulk                 {ids, action, value}
+    POST   /api/documents/{id}/edit-pages      turn, remove, reorder and split pages (pageedit.py)
+    POST   /api/documents/merge                {ids} join documents into one
     GET    /api/labels/{kind}, POST …, PATCH /api/labels/{kind}/{id}, DELETE …, POST /api/labels/{kind}/merge
     GET    /api/views, POST …, DELETE /api/views/{id}   saved searches
     GET    /api/summary                        counts for the navigation
@@ -390,3 +392,48 @@ def summary(con: Con):
                              "AND status IN ('pending', 'processing')").fetchone()[0]
     from . import keeping
     return {**counts, "processing": processing, "shred": keeping.count_ready(con)}
+
+
+# ---- fixing pages (pageedit.py): always new documents; the old ones go to the trash ----
+
+def _may_replace(request: Request) -> None:
+    who = getattr(request.state, "user", None)
+    if who is not None and not (auth.may(who, "create") and auth.may(who, "delete")):
+        raise HTTPException(403, "changing pages makes a new document and moves the old one to the trash: "
+                                 "this access key needs both create and delete")
+
+
+@router.post("/api/documents/{doc_id}/edit-pages")
+def edit_pages(request: Request, con: Con, user: User, doc_id: int, payload: dict):
+    """{pages: [{n, rotate, keep}] in the order wanted, split_after: [n…]} -> {documents: [new ids]}"""
+    from . import pageedit
+    _may_replace(request)
+    _doc_or_404(Library(con), doc_id)
+    st = request.app.state
+    try:
+        ids = pageedit.edit(con, st.paperjay["store"], doc_id, payload.get("pages"), payload.get("split_after") or (),
+                            user_id=user, max_bytes=st.config.max_upload_bytes)
+    except pageedit.EditError as e:
+        raise HTTPException(400, str(e))
+    st.paperjay["worker"].wake()
+    return {"documents": ids}
+
+
+@router.post("/api/documents/merge")
+def merge_documents(request: Request, con: Con, user: User, payload: dict):
+    """{ids: [...]} in page order -> {document: new id}"""
+    from . import pageedit
+    _may_replace(request)
+    ids = payload.get("ids")
+    lib = Library(con)
+    for i in ids if isinstance(ids, list) else []:
+        if not isinstance(i, int) or isinstance(i, bool):
+            raise HTTPException(400, "ids must be document ids")
+        _doc_or_404(lib, i)
+    st = request.app.state
+    try:
+        new_id = pageedit.merge(con, st.paperjay["store"], ids, user_id=user, max_bytes=st.config.max_upload_bytes)
+    except pageedit.EditError as e:
+        raise HTTPException(400, str(e))
+    st.paperjay["worker"].wake()
+    return {"document": new_id}
