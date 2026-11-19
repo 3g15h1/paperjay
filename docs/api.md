@@ -2,7 +2,10 @@
 
 Everything the app does goes through a JSON API under `/api`. Send an API token
 (**Settings → Your account → Advanced: access keys**) as `Authorization: Token pj_…` (or `Bearer pj_…`). A token acts
-as the account that made it; read-only accounts can only read and ask.
+as the account that made it; read-only accounts can only read and ask. A key made under **Settings → AI
+assistants (MCP)** (or with `POST /api/auth/tokens {"name", "permissions": ["read", "create", "update", "delete"]}`)
+is limited to those: it gets 403 for anything else, and never reaches settings, people, other keys, exports or
+deleting for good. The same keys work for the [MCP server](mcp.md) at `/mcp`.
 
 ## Adding documents
 

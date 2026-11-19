@@ -35,6 +35,9 @@ runs on your own hardware.
   page after page, then cut out, straightened and cleaned up into one PDF.
 - **Collects emailed documents**: checks your mailboxes every night and adds the PDFs and photos attached
   to bills and statements (filters by sender and subject).
+- **Works with AI assistants**: a built-in MCP server lets Claude (or another assistant) search, read, add,
+  change and delete documents, with an access key that has only the permissions you choose
+  ([docs/mcp.md](docs/mcp.md)).
 - **Remembers dates**: bills coming due and policies expiring, on the start page, in your phone's calendar,
   and as JSON for Home Assistant.
 - **Gets out of your way**: one container, one data folder (SQLite, no Postgres or Redis), a plain-folder

@@ -13,7 +13,7 @@ def _tables(con):
 
 
 def test_fresh_database_has_0008_schema(con):
-    assert db.schema_version(con) == 8
+    assert db.schema_version(con) == db.available_migrations()[-1][0] >= 8
     assert {"index_terms", "paper_reservations"} <= _tables(con)
     cols = {r[1] for r in con.execute("PRAGMA table_info(documents)")}
     assert "paper_no" in cols
@@ -25,7 +25,7 @@ def test_fresh_database_has_0008_schema(con):
 
 def test_upgrade_from_0007_keeps_data_and_backs_up(tmp_path):
     migs = db.available_migrations()
-    assert migs[-1][0] == 8 and migs[-2][0] == 7
+    assert migs[7][0] == 8 and migs[6][0] == 7
     v7 = [m for m in migs if m[0] <= 7]
     path = tmp_path / "p.db"
     assert db.migrate(path, tmp_path / "b", v7) == 7
@@ -36,7 +36,7 @@ def test_upgrade_from_0007_keeps_data_and_backs_up(tmp_path):
                      content="City Water. Account No: 1234.", status="ready")
     con.close()
 
-    assert db.migrate(path, tmp_path / "b") == 8
+    assert db.migrate(path, tmp_path / "b") == migs[-1][0]
     backups = list((tmp_path / "b").glob("paperjay-v7-*.db"))
     assert len(backups) == 1  # the pre-migration copy, the rollback shape
     old = sqlite3.connect(backups[0])

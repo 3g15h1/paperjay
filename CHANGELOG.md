@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0
+
+- **Connect Claude or another AI assistant.** PaperJay now has a built-in MCP server. In
+  **Settings → AI assistants (MCP)**, make an access key and tick what the assistant may do: **Read**
+  (search, read and ask), **Create** (add documents, notes and labels), **Update** (change filing, mark
+  reviewed, bring back from the Trash) and **Delete** (move to the Trash, remove labels). PaperJay then shows
+  the key once with ready-to-paste setup for Claude Code and Claude Desktop. See [docs/mcp.md](docs/mcp.md).
+- A key can never do more than the account that made it, and an assistant is only offered what its key
+  allows. No key can delete anything for good, empty the Trash, change settings or people, make other keys
+  or download an export. Removing a key cuts the assistant off straight away.
+- The same permissions work for any access key used with the API: the access key list now shows what each
+  limited key may do. Keys made before keep working as they did.
+- Changes the database (a new column for key permissions); PaperJay backs it up first, as always.
+
 ## 0.5.6
 
 - **Swipe all the way to delete.** In the Library, a short swipe left still just shows the trash-can button.

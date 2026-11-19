@@ -22,7 +22,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
-from . import analyze, intake, jobs, ocr
+from . import analyze, auth, intake, jobs, ocr
 from .api import Con, User, _doc_or_404
 from .db import transaction
 from .library import LABEL_TABLES, Library, NotFound
@@ -202,6 +202,9 @@ def bulk(request: Request, con: Con, user: User, payload: dict):
     action, value = payload.get("action"), payload.get("value")
     if action not in BULK or not ids:
         raise HTTPException(400, f"send ids and an action: {', '.join(sorted(BULK))}")
+    who = getattr(request.state, "user", None)   # a key limited to some permissions (auth.may)
+    if who is not None and not auth.may(who, "delete" if action == "trash" else "update"):
+        raise HTTPException(403, "this access key isn't allowed to do that")
     lib = Library(con)
     if action == "number_in_order":  # Phase D: sequential free numbers, one transaction
         assigned = lib.assign_paper_numbers(ids, user_id=user)

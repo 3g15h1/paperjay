@@ -8,11 +8,13 @@ Household accounts with three roles:
 Passwords are hashed with scrypt (standard library). A browser signs in once and gets a session cookie
 (HttpOnly, SameSite=Lax, 90 days, renewed while in use). Scripts and phone shortcuts use API tokens in an
 `Authorization: Token …` (as Paperless-ngx does) or `Bearer …` header. Only hashes of sessions and tokens
-are stored. Too many wrong passwords for one name and address in a row make sign-in wait.
+are stored. A token can be limited to some of read, create, update and delete (keys for AI assistants, 0.6):
+those only narrow what the account's role allows. Too many wrong passwords for one name and address in a row make sign-in wait.
 """
 import base64
 import hashlib
 import hmac
+import re
 import secrets
 import sqlite3
 import threading
@@ -22,6 +24,7 @@ from dataclasses import dataclass
 from .db import transaction
 
 ROLES = ("admin", "member", "readonly")
+PERMISSIONS = ("read", "create", "update", "delete")
 SESSION_DAYS = 90
 COOKIE = "pj_session"
 MIN_PASSWORD = 8
@@ -43,6 +46,8 @@ class User:
     display_name: str
     role: str
     scope: str = "all"   # 'calendar' when signed in with a calendar-only token
+    permissions: frozenset | None = None   # a token limited to some of PERMISSIONS; None = all the role allows
+    via_token: bool = False
 
     @property
     def name(self) -> str:
@@ -240,21 +245,51 @@ def sign_out(con: sqlite3.Connection, token: str) -> None:
 
 # ---- API tokens ----
 
-def create_token(con: sqlite3.Connection, user_id: int, name: str, scope: str = "all") -> tuple[int, str]:
-    """Returns (id, token). The token is shown once; only its hash is kept."""
+def role_permissions(role: str) -> tuple[str, ...]:
+    """What a key made by someone with this role can be given: read-only people can only read."""
+    return ("read",) if role == "readonly" else PERMISSIONS
+
+
+def create_token(con: sqlite3.Connection, user_id: int, name: str, scope: str = "all",
+                 permissions=None) -> tuple[int, str]:
+    """Returns (id, token). The token is shown once; only its hash is kept. `permissions` (some of
+    PERMISSIONS) limits the token; None lets it do everything the account can."""
     if scope not in ("all", "calendar"):
         raise AuthError("scope must be all or calendar")
-    name = " ".join(str(name).split())[:60] or ("Calendar" if scope == "calendar" else "API token")
+    perms = None
+    if permissions is not None:
+        if scope != "all":
+            raise AuthError("only access keys can have permissions")
+        if isinstance(permissions, str):
+            permissions = permissions.split(",")
+        chosen = {str(x).strip().lower() for x in permissions if str(x).strip()}
+        if not chosen:
+            raise AuthError("choose at least one permission")
+        if chosen - set(PERMISSIONS):
+            raise AuthError(f"permissions are {', '.join(PERMISSIONS)}")
+        user = get_user(con, user_id)
+        if user is None:
+            raise AuthError("no such person")
+        if chosen - set(role_permissions(user.role)):
+            raise AuthError("your account can't give a key more than it can do itself")
+        perms = ",".join(p for p in PERMISSIONS if p in chosen)
+    name = " ".join(str(name).split())[:60] or ("Calendar" if scope == "calendar" else
+                                                 "AI assistant" if perms else "API token")
     token = "pj_" + secrets.token_urlsafe(30)
     with transaction(con):
-        cur = con.execute("INSERT INTO api_tokens(user_id, name, token_hash, prefix, scope) VALUES (?, ?, ?, ?, ?)",
-                          (user_id, name, _hash(token), token[:7], scope))
+        cur = con.execute("INSERT INTO api_tokens(user_id, name, token_hash, prefix, scope, permissions) "
+                          "VALUES (?, ?, ?, ?, ?, ?)", (user_id, name, _hash(token), token[:7], scope, perms))
     return cur.lastrowid, token
 
 
 def list_tokens(con: sqlite3.Connection, user_id: int) -> list[dict]:
-    return [dict(r) for r in con.execute("SELECT id, name, prefix, scope, created_at, last_used_at FROM api_tokens "
-                                         "WHERE user_id = ? ORDER BY id", (user_id,))]
+    out = []
+    for r in con.execute("SELECT id, name, prefix, scope, permissions, created_at, last_used_at FROM api_tokens "
+                         "WHERE user_id = ? ORDER BY id", (user_id,)):
+        t = dict(r)
+        t["permissions"] = t["permissions"].split(",") if t["permissions"] else None
+        out.append(t)
+    return out
 
 
 def revoke_token(con: sqlite3.Connection, user_id: int, token_id: int) -> bool:
@@ -262,7 +297,8 @@ def revoke_token(con: sqlite3.Connection, user_id: int, token_id: int) -> bool:
 
 
 def token_user(con: sqlite3.Connection, token: str) -> User | None:
-    row = con.execute("SELECT t.id AS token_id, t.scope, t.last_used_at, u.* FROM api_tokens t "
+    row = con.execute("SELECT t.id AS token_id, t.scope, t.permissions AS token_permissions, t.last_used_at, u.* "
+                      "FROM api_tokens t "
                       "JOIN users u ON u.id = t.user_id WHERE t.token_hash = ? AND NOT u.disabled",
                       (_hash(token),)).fetchone()
     if not row:
@@ -271,7 +307,8 @@ def token_user(con: sqlite3.Connection, token: str) -> User | None:
     if not (row["last_used_at"] or "").startswith(today):  # once a day is precise enough
         con.execute("UPDATE api_tokens SET last_used_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?",
                     (row["token_id"],))
-    return User(row["id"], row["username"], row["display_name"], row["role"], row["scope"])
+    perms = frozenset(row["token_permissions"].split(",")) if row["token_permissions"] else None
+    return User(row["id"], row["username"], row["display_name"], row["role"], row["scope"], perms, True)
 
 
 # ---- what each role may do ----
@@ -281,16 +318,58 @@ OPEN = {"/login", "/setup", "/healthz", "/manifest.webmanifest", "/sw.js", "/api
         "/api/auth/status", "/paperjay-ca.crt", "/paperjay.mobileconfig"}
 OPEN_PREFIXES = ("/static/",)
 # Read-only people may also do these (they don't change documents)
-READONLY_WRITES = {("POST", "/api/ask"), ("POST", "/api/feedback"), ("POST", "/api/auth/logout"),
+READONLY_WRITES = {("POST", "/api/ask"), ("POST", "/mcp"), ("DELETE", "/mcp"), ("POST", "/api/feedback"), ("POST", "/api/auth/logout"),
                    ("POST", "/api/auth/password"), ("POST", "/api/auth/tokens")}
 READONLY_WRITE_PREFIXES = ("/api/auth/tokens/",)
 # Only admins: people, settings, deleting for good
 ADMIN_ONLY = ("/api/users", "/api/settings", "/api/trash/empty", "/api/import", "/api/export", "/api/update", "/api/mail")
 
 
+# What a limited token (User.permissions) needs for each request. Anything not listed is refused to a
+# limited token: no settings, people, other keys, export or deleting for good. The role still applies after.
+_DOC = r"/api/documents/\d+"
+_LABEL = r"/api/labels/(tag|correspondent|document_type)"
+_NEEDS = [
+    ("GET", r"/api/(documents|labels|upcoming|summary|suggest|browse|index|facts|ask/stream|paper/next|tasks|"
+            r"uploads|auth/status|ai/status)(/.*)?", {"read"}),
+    ("POST", r"/api/ask", {"read"}),
+    ("POST|GET|DELETE", r"/mcp", set(PERMISSIONS)),   # each tool is checked again as its own request
+    ("POST", r"/api/documents|/api/documents/post_document/", {"create"}),
+    ("POST", _DOC + r"/notes", {"create"}),
+    ("POST", _LABEL, {"create"}),
+    ("POST", r"/api/labels/correspondent/\d+/aliases", {"create"}),
+    ("PATCH", _DOC + "|" + _LABEL + r"/\d+", {"update"}),
+    ("POST", _DOC + r"/(restore|reviewed|confirm-fields|confirm-filing|not-a-copy|refile|reprocess|analyze|"
+                    r"suggestions/accept)", {"update"}),
+    ("POST", _LABEL + r"/merge", {"update"}),
+    ("POST", r"/api/documents/bulk", {"update", "delete"}),   # the action is checked in the endpoint
+    ("POST", _DOC + r"/trash", {"delete"}),
+    ("DELETE", _LABEL + r"/\d+|/api/labels/correspondent/\d+/aliases/\d+", {"delete"}),
+]
+_NEEDS = [(m, re.compile(p), need) for m, p, need in _NEEDS]
+
+
+def token_needs(method: str, path: str) -> set | None:
+    """The permissions any one of which lets a limited token make this request; None = never."""
+    method = "GET" if method == "HEAD" else method
+    for m, pattern, need in _NEEDS:
+        if method in m.split("|") and pattern.fullmatch(path):
+            return need
+    return None
+
+
+def may(user: User, permission: str) -> bool:
+    """For checks that depend on the request body (bulk actions)."""
+    return user.permissions is None or permission in user.permissions
+
+
 def allowed(user: User, method: str, path: str) -> bool:
     if user.scope == "calendar":
         return method == "GET" and path == "/calendar.ics"
+    if user.permissions is not None:
+        need = token_needs(method, path)
+        if not need or not (need & user.permissions):
+            return False
     reading = method in ("GET", "HEAD")
     if path.startswith(ADMIN_ONLY) and not (reading and path.startswith("/api/settings")):
         return user.role == "admin"

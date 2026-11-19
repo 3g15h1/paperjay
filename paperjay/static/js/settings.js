@@ -17,6 +17,7 @@ const LANG_NAMES = { eng: "English", deu: "German", fra: "French", spa: "Spanish
 // Settings is a list; each entry opens its own page at /settings/<key> with a back button.
 export const SECTIONS = [
   { key: "account", icon: "user", title: "Your account", sub: "Your password, your calendar link and access keys for apps" },
+  { key: "assistants", icon: "ask", title: "AI assistants (MCP)", sub: "Let Claude or another AI assistant find, read and file your documents, with the permissions you choose" },
   { key: "people", icon: "users", title: "People", sub: "Who in your household can use PaperJay, and what each person may do", admin: true },
   { key: "household", icon: "users", title: "Household", sub: "The people your documents are about, so search and questions understand them", admin: true },
   { key: "reading", icon: "eye", title: "Reading documents", sub: "The languages your documents are in, and how dates are written", admin: true },
@@ -162,6 +163,23 @@ export async function show(view, params) {
       <div><button class="btn primary">Save</button></div>
     </form></div>`,
     email: () => mailHTML(),
+    assistants: () => `<div class="section"><div class="h"><h2>AI assistants (MCP)</h2></div>
+      <p class="sec-desc">An AI assistant such as Claude can work with your documents through MCP: search them, read them,
+        ask questions, add documents, change their filing or delete them. Make an access key for it here and choose what
+        it may do. It acts as you, and never more than your account can do.</p>
+      <form class="card pad" id="mcpForm" style="display:grid;gap:14px">
+        <label class="field">Name<input class="input" name="name" value="Claude" maxlength="60"><span class="help">So you can tell your keys apart, e.g. “Claude on my laptop”.</span></label>
+        <div style="display:grid;gap:10px"><b>It may</b>
+          <label class="check"><input type="checkbox" name="perm" value="read" checked><span>Read<div class="help">Search, open and read documents, ask questions, see tags, companies and what's coming up.</div></span></label>
+          <label class="check"><input type="checkbox" name="perm" value="create"><span>Create<div class="help">Add documents, notes, tags, companies and types.</div></span></label>
+          <label class="check"><input type="checkbox" name="perm" value="update"><span>Update<div class="help">Change titles, dates, companies, types and tags; mark documents reviewed; bring documents back from the Trash.</div></span></label>
+          <label class="check"><input type="checkbox" name="perm" value="delete"><span>Delete<div class="help">Move documents to the Trash (kept for 30 days) and delete tags, companies and types. It can never delete anything for good.</div></span></label>
+          <div class="help" id="mcpRo" hidden>Your account can only look, so its keys can only read.</div>
+        </div>
+        <div><button class="btn primary">${icon("plus")} Make access key</button></div>
+      </form>
+      <div class="section"><div class="h"><h2>Keys for AI assistants</h2></div><div class="card list" id="mcpKeys"></div>
+        <div class="help" style="margin:8px 2px">Removing a key cuts that assistant off straight away. The address it connects to is <code id="mcpUrl"></code>.</div></div></div>`,
     appearance: () => `<div class="section"><div class="h"><h2>Appearance</h2></div>
     <p class="sec-desc">Light or dark. “Automatic” follows your phone or computer.</p>
     <div class="card pad"><div class="seg" id="theme"><button data-v="system">Automatic</button><button data-v="dark">Dark</button><button data-v="light">Light</button></div></div></div>`,
@@ -342,7 +360,7 @@ export async function show(view, params) {
       } });
     async function drawTokens() {
       const ts = await api("/api/auth/tokens");
-      els.tokens.innerHTML = ts.map((t) => `<div class="item"><span class="main"><div class="t">${esc(t.name)} <span class="faint small">${esc(t.prefix)}…${t.scope === "calendar" ? " · calendar link" : ""}</span></div>
+      els.tokens.innerHTML = ts.map((t) => `<div class="item"><span class="main"><div class="t">${esc(t.name)} <span class="faint small">${esc(t.prefix)}…${t.scope === "calendar" ? " · calendar link" : t.permissions ? " · " + esc(t.permissions.join(", ")) : ""}</span></div>
         <div class="sub">made ${ago(t.created_at)}${t.last_used_at ? ", last used " + ago(t.last_used_at) : ", never used"}</div></span>
         <button class="btn ghost sm danger" data-revoke="${t.id}">Remove</button></div>`).join("") || `<div class="empty" style="padding:14px">No access keys yet.</div>`;
     }
@@ -362,6 +380,48 @@ export async function show(view, params) {
       showSecret("Your calendar link", url, "Add it as a calendar subscription (iPhone: Settings → Calendar → Accounts → Add Subscribed Calendar). It can only read the calendar.");
     };
     drawTokens();
+  }
+
+  // ---------- AI assistants (MCP) ----------
+  if (sec === "assistants") {
+    const url = location.origin + "/mcp";
+    els.mcpUrl.textContent = url;
+    const PERM_WORDS = { read: "Read", create: "Create", update: "Update", delete: "Delete" };
+    if (me?.role === "readonly") {
+      $$('input[name="perm"]', els.mcpForm).forEach((i) => { if (i.value !== "read") { i.checked = false; i.disabled = true; } });
+      els.mcpRo.hidden = false;
+    }
+    async function drawKeys() {
+      const ts = (await api("/api/auth/tokens")).filter((t) => t.permissions);
+      els.mcpKeys.innerHTML = ts.map((t) => `<div class="item"><span class="main"><div class="t">${esc(t.name)} <span class="faint small">${esc(t.prefix)}…</span></div>
+        <div class="sub">${t.permissions.map((p) => PERM_WORDS[p] || p).join(", ")} · made ${ago(t.created_at)}${t.last_used_at ? ", last used " + ago(t.last_used_at) : ", never used"}</div></span>
+        <button class="btn ghost sm danger" data-revoke="${t.id}">Remove</button></div>`).join("") || `<div class="empty" style="padding:14px">No keys for AI assistants yet.</div>`;
+    }
+    els.mcpKeys.onclick = async (e) => {
+      const b = e.target.closest("[data-revoke]"); if (!b) return;
+      if (await confirmBox("Remove this key?", "The assistant using it can't reach your documents any more.", { ok: "Remove", danger: true })) { await api(`/api/auth/tokens/${b.dataset.revoke}`, { method: "DELETE" }); drawKeys(); }
+    };
+    els.mcpForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const permissions = $$('input[name="perm"]:checked', els.mcpForm).map((i) => i.value);
+      if (!permissions.length) { toast("Choose at least one thing it may do"); return; }
+      const name = els.mcpForm.name.value.trim() || "Claude";
+      const t = await api("/api/auth/tokens", { method: "POST", body: { name, permissions } });
+      const code = mcpSetup(url, t.token);
+      modal(`<h1 style="font-size:17px">Your access key for ${esc(name)}</h1>
+        <div class="muted small">Copy what you need now: the key won't be shown again. It may: ${esc(permissions.map((p) => PERM_WORDS[p]).join(", "))}.</div>
+        ${Object.entries(code).map(([k, c]) => `<div style="display:grid;gap:4px"><b class="small">${esc(c.title)}</b>
+          <textarea class="input mono" readonly rows="${c.rows}" onclick="this.select()">${esc(c.text)}</textarea>
+          <div><button class="btn sm" data-copy="${k}">Copy</button>${c.help ? ` <span class="help">${c.help}</span>` : ""}</div></div>`).join("")}
+        <div class="acts"><button class="btn primary" data-close>Done</button></div>`, { onMount: (box) => {
+          box.onclick = (ev) => {
+            const b = ev.target.closest("[data-copy]");
+            if (b) navigator.clipboard.writeText(code[b.dataset.copy].text).then(() => toast("Copied"));
+            if (ev.target.closest("[data-close]")) { closeModal(); drawKeys(); }
+          };
+        } });
+    };
+    drawKeys();
   }
 
   // ---------- people (admin) ----------
@@ -570,4 +630,18 @@ export async function show(view, params) {
   const stopMail = sec === "email" ? mailSetup(view, me) : () => {};
   if (location.hash) view.querySelector(location.hash)?.scrollIntoView();
   return () => { clearInterval(importPoll); clearInterval(updPoll); stopMail(); };
+}
+
+// What to paste into an AI assistant to connect it (docs/mcp.md has the same).
+export function mcpSetup(url, token) {
+  const caNote = url.startsWith("https:") ? `PaperJay's own HTTPS certificate: download <a href="/paperjay-ca.crt">paperjay-ca.crt</a> and point NODE_EXTRA_CA_CERTS at it, or use the http:// address on port 8000.` : "";
+  const desktop = { paperjay: { command: "npx", args: ["-y", "mcp-remote", url, "--allow-http", "--header", "Authorization:" + "$" + "{PAPERJAY_AUTH}"],
+                                env: { PAPERJAY_AUTH: `Bearer ${token}` } } };
+  return {
+    key: { title: "The key", rows: 2, text: token },
+    code: { title: "Claude Code (run in a terminal)", rows: 4, help: caNote,
+            text: `claude mcp add --transport http --scope user paperjay ${url} --header "Authorization: Bearer ${token}"` },
+    desktop: { title: "Claude Desktop (Settings → Developer → Edit Config, inside \"mcpServers\"; needs Node.js)", rows: 9, help: caNote,
+               text: JSON.stringify(desktop, null, 2).slice(2, -2) },
+  };
 }

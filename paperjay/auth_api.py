@@ -5,6 +5,7 @@
     POST /api/auth/login, /logout
     POST /api/auth/password           change your own password (signs out other devices)
     GET/POST /api/auth/tokens, DELETE /api/auth/tokens/{id}   your API and calendar tokens
+                                      (POST {name, permissions: [read, create, update, delete]} limits a key)
     GET/POST /api/users, PATCH/DELETE /api/users/{id}         (admin)
 """
 import logging
@@ -180,7 +181,8 @@ def tokens(request: Request):
 def new_token(request: Request, payload: dict):
     con = _con(request)
     try:
-        token_id, token = auth.create_token(con, me(request).id, payload.get("name", ""), payload.get("scope", "all"))
+        token_id, token = auth.create_token(con, me(request).id, payload.get("name", ""), payload.get("scope", "all"),
+                                            payload.get("permissions"))
     except auth.AuthError as e:
         raise HTTPException(400, str(e))
     finally:
