@@ -25,6 +25,7 @@ export const SECTIONS = [
   { key: "questions", color: "blue", icon: "ask", title: "Questions", sub: "Example questions on the Ask page, and the words your household uses", admin: true },
   { key: "reminders", color: "amber", icon: "calendar", title: "Reminders", sub: "Bills that are due and things that expire", admin: true },
   { key: "filing", color: "pink", icon: "redo", title: "Filing", sub: "Re-file every document after you've tidied up", admin: true },
+  { key: "fields", color: "teal", icon: "rows", title: "Your own fields", sub: "Things you want on every document, like a policy number or a licence plate", admin: true },
   { key: "keeping", color: "red", icon: "trash", title: "Keeping paper", sub: "How long to keep each kind of paper before it can be shredded", admin: true },
   { key: "paper", color: "amber", icon: "archive", title: "Paper shelf", sub: "Number the paper originals you keep", admin: true },
   { key: "email", color: "orange", icon: "mail", title: "Email", sub: "Collect bills and statements that arrive by email", admin: true },
@@ -48,7 +49,7 @@ const LINKS = [
   { href: "/secure", color: "teal", icon: "camera", title: "Camera scanner", sub: "A one-time setup on this phone so the camera can find the page and take the photo for you" },
 ];
 const GROUPS = [
-  { title: "Documents", items: ["/labels", "/trash", "/taxpack", "filing", "paper", "keeping", "/shred"] },
+  { title: "Documents", items: ["/labels", "fields", "/trash", "/taxpack", "filing", "paper", "keeping", "/shred"] },
   { title: "Adding documents", items: ["/secure", "email", "import"] },
   { title: "Reading and asking", items: ["reading", "ai", "questions", "feedback"] },
   { title: "People and reminders", items: ["people", "household", "reminders"] },
@@ -106,6 +107,7 @@ async function fillValues(view, admin) {
     put("keeping", plural((s.keep_rules || []).length, "rule"));
   });
   get("/api/summary").then((s) => { if (!s) return; put("trash", s.trash ? plural(s.trash, "document") : "Empty"); put("shred", s.shred ? plural(s.shred, "paper") : "Nothing", s.shred ? "warn" : ""); });
+  get("/api/fields").then((f) => f && put("fields", f.length ? plural(f.length, "field") : "None"));
   get("/api/auth/tokens").then((ts) => { if (ts) { const n = ts.filter((t) => t.permissions).length; put("assistants", n ? plural(n, "key") : "Not set up"); } });
   get("/healthz").then((h) => h && put("updates", "Version " + h.version));
   if (!admin) return;
@@ -219,6 +221,20 @@ export async function show(view, params) {
       <label class="check"><input type="checkbox" name="paper_numbers"><span>Number the paper I keep<div class="help">Uploading and scanning then offer “Keeping the paper?” with the next free number. Write it on the original (or print labels from the Library — selected documents, or a sheet of numbers ahead of time). Find a sheet by typing its number, like #124, in the Library search or in Ask.</div></span></label>
       <div><button class="btn primary">Save</button></div>
     </form></div>`,
+    fields: () => `<div class="section"><div class="h"><h2>Your own fields</h2></div>
+    <p class="sec-desc">Add the things you want to see and search on your documents: a policy number, a licence plate, a member
+      number, a renewal date. Each document's page then has them. A field can fill itself from what PaperJay reads in the
+      document; what you type always wins. They're searchable and are columns in a Library spreadsheet.</p>
+    <div class="card list" id="flist"></div>
+    <form class="card pad" id="fadd" style="display:grid;gap:10px;margin-top:12px">
+      <b>Add a field</b>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <label class="field" style="flex:2;min-width:160px">Name<input class="input" name="name" placeholder="Licence plate" required></label>
+        <label class="field" style="flex:1;min-width:120px">Kind<select class="input" name="kind"><option value="text">Text</option><option value="number">Number</option><option value="money">Amount</option><option value="date">Date</option></select></label></div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
+        <label class="field" style="flex:1;min-width:160px">Fill itself from<select class="input" name="from"><option value="">Nothing: I'll type it</option><option value="id">A number labelled…</option><option value="date">A date labelled…</option><option value="total">The total</option></select></label>
+        <label class="field" style="flex:1;min-width:140px" id="fwords" hidden>Label words<input class="input" name="words" placeholder="policy"><span class="help" id="fwordsHelp"></span></label></div>
+      <div><button class="btn primary">Add field</button></div></form></div>`,
     keeping: () => `<div class="section"><div class="h"><h2>Keeping paper</h2></div>
     <p class="sec-desc">How long to keep each kind of paper. When a paper on your shelf has been kept long enough, it shows up
       in <a href="/shred">Paper to shred</a>. The first rule that matches a document decides; a document no rule matches is
@@ -375,6 +391,40 @@ export async function show(view, params) {
         toast(`Re-filing ${plural(r.queued, "document")}${r.queued_ai ? "; the AI reads them in the background" : ""}`);
       };
     }).catch(() => {});
+  }
+
+  // ---------- your own fields ----------
+  if (sec === "fields") {
+    const FROM = (fill) => !fill ? "You type it" : fill === "total" ? "Fills itself with the total"
+      : fill.startsWith("id:") ? `Fills itself with the number labelled “${fill.slice(3)}”` : `Fills itself with the “${fill.slice(5)}” date`;
+    const KIND = { text: "Text", number: "Number", money: "Amount", date: "Date" };
+    const load = async () => {
+      const list = await api("/api/fields");
+      els.flist.innerHTML = list.map((f) => `<div class="item"><span class="main"><div class="t">${esc(f.name)}</div>
+          <div class="sub">${esc(KIND[f.kind])} · ${esc(FROM(f.fill))}</div></span>
+          <button class="btn ghost sm" data-ren="${f.id}">Rename</button><button class="btn ghost sm danger" data-del="${f.id}">Remove</button></div>`).join("")
+        || `<div class="item"><span class="main muted">No fields yet. Add one below.</span></div>`;
+    };
+    const f = els.fadd;
+    const syncFrom = () => {
+      els.fwords.hidden = !["id", "date"].includes(f.from.value);
+      f.words.placeholder = f.from.value === "date" ? "expires" : "policy";
+      $("#fwordsHelp", view).textContent = f.from.value === "date" ? "due, expires, issued, paid, service or effective" : "Words in its label on the document, like policy, member or account";
+    };
+    f.from.onchange = syncFrom; syncFrom();
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const from = f.from.value, words = f.words.value.trim();
+      if (["id", "date"].includes(from) && !words) { toast("Say which label to look for"); return; }
+      await api("/api/fields", { method: "POST", body: { name: f.name.value, kind: f.kind.value, fill: from === "total" ? "total" : from ? `${from}:${words}` : "" } });
+      f.reset(); syncFrom(); toast("Added"); load();
+    };
+    els.flist.onclick = async (e) => {
+      const ren = e.target.closest("[data-ren]"), del = e.target.closest("[data-del]");
+      if (ren) { const name = await promptBox("Rename the field", { value: ren.closest(".item").querySelector(".t").textContent }); if (name) { await api(`/api/fields/${ren.dataset.ren}`, { method: "PATCH", body: { name } }); load(); } }
+      if (del && await confirmBox("Remove this field?", "It goes from every document, with the values you typed.", { ok: "Remove", danger: true })) { await api(`/api/fields/${del.dataset.del}`, { method: "DELETE" }); load(); }
+    };
+    load();
   }
 
   // ---------- keeping paper ----------

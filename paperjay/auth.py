@@ -331,7 +331,7 @@ _DOC = r"/api/documents/\d+"
 _LABEL = r"/api/labels/(tag|correspondent|document_type)"
 _NEEDS = [
     ("GET", r"/api/(documents|labels|upcoming|summary|suggest|browse|index|facts|ask/stream|paper/next|tasks|"
-            r"uploads|auth/status|ai/status|shred|warranties)(/.*)?", {"read"}),
+            r"uploads|auth/status|ai/status|shred|warranties|fields)(/.*)?", {"read"}),
     ("POST", r"/api/ask", {"read"}),
     ("POST|GET|DELETE", r"/mcp", set(PERMISSIONS)),   # each tool is checked again as its own request
     ("POST", r"/api/documents|/api/documents/post_document/", {"create"}),
@@ -339,6 +339,7 @@ _NEEDS = [
     ("POST", _LABEL, {"create"}),
     ("POST", r"/api/labels/correspondent/\d+/aliases", {"create"}),
     ("PATCH", _DOC + "|" + _LABEL + r"/\d+", {"update"}),
+    ("PUT", _DOC + r"/fields/\d+", {"update"}),
     ("POST", _DOC + r"/(restore|reviewed|confirm-fields|confirm-filing|not-a-copy|refile|reprocess|analyze|"
                     r"suggestions/accept|shredded|unshred)", {"update"}),
     ("POST", r"/api/shred/bulk", {"update"}),

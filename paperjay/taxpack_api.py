@@ -86,6 +86,14 @@ def documents_csv(con: Con, q: str = "", tags: str | None = None, correspondent_
             offset += 500
             if offset >= page["total"] or not page["results"] or offset >= 10000:
                 break
+    from . import analyze, fields
+    names = [f["name"] for f in fields.all_fields(con)]
+    values = {}
+    if names:
+        for d in docs:
+            content = con.execute("SELECT content FROM documents WHERE id = ?", (d["id"],)).fetchone()[0]
+            values[d["id"]] = {f["name"]: f["value"] for f in
+                               fields.for_document(con, d["id"], analyze.get_card(con, d["id"], content))}
     name = f"paperjay-documents-{time.strftime('%Y-%m-%d')}.csv"
-    return Response(taxpack.list_csv(docs), media_type="text/csv; charset=utf-8",
+    return Response(taxpack.list_csv(docs, names, values), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})

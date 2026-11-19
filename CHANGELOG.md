@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.7.8
+
+- **Your own fields.** Settings → Your own fields: add the things you want on your documents, like a
+  policy number, a licence plate, a member number or a renewal date (as text, a number, an amount or a
+  date). Every document's page shows them, ready to fill in.
+- **Fields that fill themselves.** A field can take its value from what PaperJay reads in each document:
+  the number labelled "policy" (or any words you choose), a date such as "expires", or the total. A value
+  filled in this way says **read**; type over it and your value wins. **Fill in from the document again**
+  undoes that.
+- Typed values are found by the search, and each field is a column when you download a Library list as a
+  spreadsheet. Exports include them, and importing an export brings them back.
+- Only admins add or change fields; anyone who can edit documents can fill them in.
+- Changes the database (two new tables); PaperJay backs it up first, as always.
+
 ## 0.7.7
 
 - **Bills that are written in the email, not attached.** Each mailbox (Settings → Email) now has **The

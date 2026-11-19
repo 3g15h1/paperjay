@@ -30,6 +30,8 @@ runs on your own hardware.
 - **Files it for you** (with AI): title, date, company, document type and tags, read from the text. It never
   changes anything a person has set, only uses tags the text supports, and puts anything uncertain in
   **Needs review**.
+- **Your own fields**: a policy number, licence plate or renewal date on every document, filled in from
+  the text where it can be, searchable and in your spreadsheets.
 - **Shows what's left to tidy**: documents with no company, date or type, file-name titles, possible copies
   and filing the text and the AI disagree on, each with a one-tap fix. Every fix is your own filing, so the
   next documents from that company are filed the same way.
@@ -101,7 +103,8 @@ default model on a CPU; a GPU makes it fast).
 | Due and expiry dates, calendar feed | yes | no | no |
 | Mail import | yes | yes | via Paperless |
 | Works with AI assistants (MCP), with per-key permissions | built in | not built in (community add-ons) | not built in |
-| Workflows, barcode splitting, custom fields, per-document permissions | not yet | **yes** | via Paperless |
+| Custom fields (filled from the text) | yes | yes | via Paperless |
+| Workflows, barcode splitting, per-document permissions | not yet | **yes** | via Paperless |
 
 Paperless-ngx is the mature, feature-rich choice for large or shared archives with complex rules. PaperJay
 aims at households: fewer moving parts, filing that mostly happens by itself, and answers instead of

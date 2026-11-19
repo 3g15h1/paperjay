@@ -131,6 +131,14 @@ def import_one(con: sqlite3.Connection, store: FileStore, meta: dict, original: 
         labels["tags"] = tag_ids
     if labels:
         lib.update(doc_id, user_id=user_id, by="system", **labels)
+    from . import fields as fields_mod
+    for name, value in (meta.get("fields") or {}).items():   # a PaperJay export: the household's own fields
+        f = con.execute("SELECT id FROM custom_fields WHERE name = ?", (name,)).fetchone()
+        if f and isinstance(value, str):
+            try:
+                fields_mod.set_value(con, doc_id, f[0], value, user_id)
+            except ValueError:
+                pass
     keeping = {k: meta[k] for k in ("keep_until", "shredded_at", "shredded_paper_no", "warranty_until")
                if meta.get(k) is not None}
     if keeping:   # a PaperJay export: how long to keep the paper, and whether it was shredded
@@ -320,6 +328,13 @@ def import_export(db_path, store: FileStore, folder, user_id: int | None = None)
     con = connect(db_path)
     colors = {t["name"]: t.get("color") for t in manifest.get("tags", [])}
     docs = manifest["documents"]
+    from . import fields as fields_mod
+    for f in manifest.get("custom_fields") or []:   # the household's own fields, before their values
+        try:
+            if not con.execute("SELECT 1 FROM custom_fields WHERE name = ?", (f.get("name"),)).fetchone():
+                fields_mod.create(con, f.get("name"), f.get("kind") or "text", f.get("fill") or "")
+        except (ValueError, TypeError):
+            pass
     _progress(state="running", source="PaperJay export", started=time.time(), finished=None, total=len(docs),
               done=0, imported=0, duplicates=0, failed=0, errors=[])
     try:
@@ -337,7 +352,7 @@ def import_export(db_path, store: FileStore, folder, user_id: int | None = None)
                         "notes": [n["text"] for n in d.get("notes", [])], "content": d.get("text") or "",
                         "paper_no": d.get("paper_no"), "keep_until": d.get("keep_until"),
                         "shredded_at": d.get("shredded_at"), "shredded_paper_no": d.get("shredded_paper_no"),
-                        "warranty_until": d.get("warranty_until"),
+                        "warranty_until": d.get("warranty_until"), "fields": d.get("fields") or {},
                         "original_name": d.get("original_name"), "mime_type": d.get("mime_type"), "pages": d.get("pages")}
                 new_id = import_one(con, store, meta, original, archive, user_id, "paperjay-export")
                 _progress(**({"imported": PROGRESS["imported"] + 1} if new_id else {"duplicates": PROGRESS["duplicates"] + 1}))

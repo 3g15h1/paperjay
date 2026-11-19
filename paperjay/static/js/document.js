@@ -8,6 +8,15 @@ const FIELD_NAMES = { title: "title", doc_date: "date", correspondent_id: "compa
 const ACTIONS = { add: "Added", update: "Edited", ai_update: "Filed by the AI", auto_update: "Read by OCR", note: "Note added",
   trash: "Moved to the trash", restore: "Restored", purge: "Deleted" };
 
+// The household's own fields (fields.py): typed values win; filled ones say where they came from.
+function ownFields(list) {
+  if (!list || !list.length) return "";
+  const type = { number: "text", money: "text", date: "date", text: "text" };
+  return list.map((f) => `<label class="field"><span class="lab">${esc(f.name)}${f.source === "filled" ? `<span class="chip accent mini" title="Read from the document. Type to change it.">read</span>` : ""}</span>
+      <input class="input" type="${type[f.kind]}" ${f.kind === "number" || f.kind === "money" ? 'inputmode="decimal"' : ""} data-field="${f.id}" value="${esc(f.value ?? "")}" placeholder="${f.source === "cleared" ? "None" : "—"}">
+      ${(f.source === "person" || f.source === "cleared") && f.fill ? `<span class="help"><button type="button" class="btn ghost sm" data-refill="${f.id}" style="padding:0 4px;height:auto">Fill in from the document again</button></span>` : ""}</label>`).join("");
+}
+
 // The warranty (warranty.py): what the text says or the person's own date, and a choice to change it.
 function warrantyField(doc) {
   const w = doc.warranty, own = doc.warranty_until != null;
@@ -174,6 +183,7 @@ export async function show(view, { id, query }) {
         <div><button class="btn sm primary" data-act="reviewed">${icon("check")} Looks right</button></div></div>` : ""}
       <label class="field"><span class="lab">Date${aiMark("doc_date")}</span><input class="input" type="date" id="f-date" value="${esc(doc.doc_date || "")}"></label>
       <label class="field"><span class="lab">Paper no.${aiMark("paper_no")}</span><input class="input" type="number" min="1" step="1" id="f-paper" value="${doc.paper_no ?? ""}" placeholder="Not numbered"><span class="help">The number written on the paper original. Empty clears it.</span></label>
+      ${ownFields(doc.fields)}
       ${warrantyField(doc)}
       ${keepField(doc.keeping)}
       <label class="field"><span class="lab">Company${aiMark("correspondent_id")}</span><select class="input" id="f-corr"><option value="">—</option>${corrs.map((c) => `<option value="${c.id}" ${c.id === doc.correspondent_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}<option value="new">+ New company…</option></select></label>
@@ -200,6 +210,13 @@ export async function show(view, { id, query }) {
         drawDetails();
       }
     };
+    els.pane.querySelectorAll("[data-field]").forEach((inp) => {
+      inp.onchange = () => {
+        const v = inp.value.trim(), f = doc.fields.find((x) => x.id === +inp.dataset.field);
+        setField(f.id, v === "" && !f.fill ? null : v);   // emptied: no value (or "none" when it would fill itself)
+      };
+    });
+    els.pane.querySelectorAll("[data-refill]").forEach((b) => { b.onclick = () => setField(+b.dataset.refill, null); });
     const warr = $("#f-warranty", els.pane);
     if (warr) warr.onchange = async () => {
       if (warr.value === "text") return save({ warranty_until: null });
@@ -227,6 +244,11 @@ export async function show(view, { id, query }) {
     pickSelect($("#f-type", els.pane), "document_type", "document_type_id");
     combo($("#f-tag", els.pane), "tag", async (t) => { t = await ensureLabel("tag", t); save({ tags: [...doc.tags.map((x) => x.id), t.id] }); },
       { exclude: () => doc.tags.map((t) => t.id) });
+  }
+  async function setField(id, value) {   // '' = none, null = fill itself again
+    const f = await api(`/api/documents/${doc.id}/fields/${id}`, { method: "PUT", body: { value } }).catch(() => null);
+    if (f) { doc.fields = f; toast("Saved"); }
+    drawDetails();
   }
   async function patch(fields) {
     doc = { ...doc, ...(await api(`/api/documents/${doc.id}`, { method: "PATCH", body: fields })) };

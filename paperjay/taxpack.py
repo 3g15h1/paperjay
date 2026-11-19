@@ -227,13 +227,15 @@ def readme(pack: dict, docs: list[dict], today: date) -> str:
     return "\n".join(lines) + "\n"
 
 
-def list_csv(docs: list[dict]) -> bytes:
-    """The Library's "Download list": the documents as a spreadsheet."""
+def list_csv(docs: list[dict], field_names: list[str] = (), values: dict | None = None) -> bytes:
+    """The Library's "Download list": the documents as a spreadsheet, with a column per own field
+    (values: {document id: {field name: value}})."""
     header = ["Date", "Title", "Company", "Type", "Category", "Tags", "Paper number", "Pages", "Added",
-              "Needs review", "PaperJay id"]
+              "Needs review", "PaperJay id", *field_names]
+    values = values or {}
     rows = [[d["doc_date"] or "", d["title"], d["correspondent"], d["document_type"], d["category"],
              ", ".join(t["name"] for t in d["tags"]), d["paper_no"], d["page_count"], (d["added_at"] or "")[:10],
-             d["needs_review"], d["id"]] for d in docs]
+             d["needs_review"], d["id"], *[values.get(d["id"], {}).get(n) for n in field_names]] for d in docs]
     return write_csv(rows, header)
 
 

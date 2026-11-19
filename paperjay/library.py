@@ -750,6 +750,9 @@ class Library:
         meta += [r[0] for r in self.con.execute(
             "SELECT t.name FROM document_tags dt JOIN tags t ON t.id = dt.tag_id WHERE dt.document_id = ?", (doc_id,))]
         meta += [r[0] for r in self.con.execute("SELECT body FROM notes WHERE document_id = ?", (doc_id,))]
+        meta += [f"{r[0]} {r[1]}" for r in self.con.execute(   # the household's own fields (fields.py)
+            "SELECT f.name, v.value FROM document_fields v JOIN custom_fields f ON f.id = v.field_id "
+            "WHERE v.document_id = ? AND v.value != ''", (doc_id,))]
         self.con.execute("INSERT INTO documents_fts(rowid, title, meta, content) VALUES (?, ?, ?, ?)",
                          (doc_id, row["title"], "\n".join(m for m in meta if m), row["content"] or ""))
 

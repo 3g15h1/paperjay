@@ -18,7 +18,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from . import __version__, analyze
+from . import __version__, analyze, fields
 from .library import Library
 from .store import FileStore
 
@@ -77,6 +77,9 @@ def manifest(con: sqlite3.Connection) -> dict:
             "text": d["content"], "facts": analyze.get_card(con, doc_id, d["content"]),
             "paper_no": d["paper_no"], "keep_until": d["keep_until"], "shredded_at": d["shredded_at"],
             "shredded_paper_no": d["shredded_paper_no"], "warranty_until": d["warranty_until"],
+            "fields": {r[0]: r[1] for r in con.execute(
+                "SELECT f.name, v.value FROM document_fields v JOIN custom_fields f ON f.id = v.field_id "
+                "WHERE v.document_id = ?", (doc_id,))},
         })
     return {
         "format": FORMAT, "version": VERSION, "exported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -84,6 +87,7 @@ def manifest(con: sqlite3.Connection) -> dict:
         "tags": [{"name": t["name"], "color": t["color"]} for t in lib.labels("tag")],
         "correspondents": [c["name"] for c in lib.labels("correspondent")],
         "document_types": [t["name"] for t in lib.labels("document_type")],
+        "custom_fields": [{"name": f["name"], "kind": f["kind"], "fill": f["fill"]} for f in fields.all_fields(con)],
         "documents": docs,
     }
 

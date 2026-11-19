@@ -21,6 +21,7 @@ moves renamed ones, and with `--prune` deletes files of documents that no longer
   "tags": [{"name": "Bills", "color": "#f2c14e"}],
   "correspondents": ["Acme Energy"],
   "document_types": ["Bill"],
+  "custom_fields": [{"name": "Policy number", "kind": "text", "fill": "id:policy"}],
   "documents": [{
     "id": 12, "title": "Acme Energy bill", "date": "2025-08-14", "added": "2025-08-15T13:00:00Z",
     "correspondent": "Acme Energy", "document_type": "Bill", "tags": ["Bills", "Utilities"],
@@ -29,6 +30,7 @@ moves renamed ones, and with `--prune` deletes files of documents that no longer
     "mime_type": "image/jpeg", "sha256": "…", "searchable_pdf": "documents/2025/…[12].searchable.pdf",
     "pages": 1, "text": "…the OCR text…", "paper_no": 124,
     "keep_until": null, "shredded_at": null, "shredded_paper_no": null, "warranty_until": null,
+    "fields": {"Licence plate": "ABC 123"},
     "facts": {"kind": "bill", "category": "utilities", "vendor": "Acme Energy", "total": 144.37,
               "dates": [{"label": "due", "date": "2025-09-05"}], "ids": [{"label": "account", "value": "7730 1184 52"}]}
   }]
@@ -39,5 +41,6 @@ moves renamed ones, and with `--prune` deletes files of documents that no longer
 number on the paper shelf; `keep_until` is a person's own keep-the-paper-until date (`9999-12-31` = for
 good, `null` = the keep rules decide); `shredded_at` and `shredded_paper_no` say when the paper was shredded
 and the number it had. `warranty_until` is a person's own warranty end (`none` = no warranty, `null` =
-read from the text). Documents in the trash
+read from the text). `fields` holds the values a person gave the household's own fields (`custom_fields`;
+values PaperJay fills in from the text aren't stored, so they aren't here; `""` means "none"). Documents in the trash
 are not exported. `paperjay import-export <folder>` reads this format back.

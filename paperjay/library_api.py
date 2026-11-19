@@ -13,6 +13,8 @@
     POST   /api/documents/{id}/edit-pages      turn, remove, reorder and split pages (pageedit.py)
     POST   /api/documents/merge                {ids} join documents into one
     GET    /api/documents/{id}/find?q=         where the words of a search are on its pages (findwords.py)
+    GET    /api/fields, POST (admin), PATCH/DELETE /api/fields/{id}   the household's own fields (fields.py)
+    PUT    /api/documents/{id}/fields/{field}  {value}: a document's value ('' none, null fill itself)
     GET    /api/labels/{kind}, POST …, PATCH /api/labels/{kind}/{id}, DELETE …, POST /api/labels/{kind}/merge
     GET    /api/views, POST …, DELETE /api/views/{id}   saved searches
     GET    /api/summary                        counts for the navigation
@@ -453,3 +455,66 @@ def find_words(request: Request, con: Con, doc_id: int, q: str = ""):
     else:
         return {"pages": [], "count": 0, "terms": []}
     return findwords.find(pdf, findwords.terms_of(q))
+
+
+# ---- the household's own fields (fields.py) ----
+
+def _admin(request: Request) -> None:
+    who = getattr(request.state, "user", None)
+    if who is not None and who.role != "admin":
+        raise HTTPException(403, "only someone who can do everything can change the fields")
+
+
+@router.get("/api/fields")
+def list_fields(con: Con):
+    from . import fields
+    return fields.all_fields(con)
+
+
+@router.post("/api/fields")
+def add_field(request: Request, con: Con, payload: dict):
+    from . import fields
+    _admin(request)
+    try:
+        return fields.create(con, payload.get("name"), payload.get("kind") or "text", payload.get("fill") or "")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.patch("/api/fields/{field_id}")
+def edit_field(request: Request, con: Con, field_id: int, payload: dict):
+    from . import fields
+    _admin(request)
+    try:
+        return fields.update(con, field_id, payload)
+    except KeyError:
+        raise HTTPException(404, "no such field")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.delete("/api/fields/{field_id}")
+def remove_field(request: Request, con: Con, field_id: int):
+    from . import fields
+    _admin(request)
+    if not fields.delete(con, field_id):
+        raise HTTPException(404, "no such field")
+    return {"deleted": True}
+
+
+@router.put("/api/documents/{doc_id}/fields/{field_id}")
+def set_field(con: Con, user: User, doc_id: int, field_id: int, payload: dict):
+    """{value: "ABC 123"} keeps a value, {value: ""} says it has none, {value: null} lets it fill itself."""
+    from . import analyze, fields
+    lib = Library(con)
+    doc = _doc_or_404(lib, doc_id)
+    value = payload.get("value")
+    if value is not None and not isinstance(value, (str, int, float)):
+        raise HTTPException(400, "value must be text, a number or null")
+    try:
+        fields.set_value(con, doc_id, field_id, None if value is None else str(value), user)
+    except KeyError:
+        raise HTTPException(404, "no such field")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return fields.for_document(con, doc_id, analyze.get_card(con, doc_id, doc["content"]))

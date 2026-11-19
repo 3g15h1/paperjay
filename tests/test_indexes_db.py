@@ -30,10 +30,13 @@ def test_upgrade_from_0007_keeps_data_and_backs_up(tmp_path):
     path = tmp_path / "p.db"
     assert db.migrate(path, tmp_path / "b", v7) == 7
     con = db.connect(path)
-    lib = Library(con)
-    doc_id = lib.add(title="Water bill", checksum="a" * 64, original_name="bill.pdf",
-                     original_ext=".pdf", mime_type="application/pdf", size=3,
-                     content="City Water. Account No: 1234.", status="ready")
+    # written as a v7 install had it: today's Library code expects today's schema (0.7.8 indexes
+    # the household's own fields, a table v7 doesn't have)
+    with db.transaction(con):
+        doc_id = con.execute(
+            "INSERT INTO documents(title, checksum, original_name, original_ext, mime_type, size, content, status) "
+            "VALUES ('Water bill', ?, 'bill.pdf', '.pdf', 'application/pdf', 3, 'City Water. Account No: 1234.', "
+            "'ready')", ("a" * 64,)).lastrowid
     con.close()
 
     assert db.migrate(path, tmp_path / "b") == migs[-1][0]

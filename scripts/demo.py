@@ -234,6 +234,10 @@ def main(data_dir: str) -> None:
     # the paper shelf: the household numbers the paper it keeps (oldest first)
     from paperjay import settings
     settings.save(con, {"paper_numbers": True})
+    from paperjay import fields   # two of the household's own fields, filled from what was read
+    if not fields.all_fields(con):
+        fields.create(con, "Policy number", "text", "id:policy")
+        fields.create(con, "Account number", "text", "id:account")
     lib.assign_paper_numbers([i for i in ids[:len(EXTRA_DOCS)] if i])
     print(f"demo library ready in {data}: {len([i for i in ids if i])} documents")
     print(json.dumps(Library(con).counts()))
