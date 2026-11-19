@@ -65,7 +65,7 @@ repository is private, GitHub only answers with a token: put it in `/etc/paperja
 ## By hand (any Linux)
 
 ```sh
-sudo apt install python3-venv tesseract-ocr tesseract-ocr-eng ghostscript unpaper poppler-utils pngquant
+sudo apt install python3-venv tesseract-ocr tesseract-ocr-eng ghostscript unpaper poppler-utils pngquant fonts-dejavu-core
 python3 -m venv ~/paperjay && ~/paperjay/bin/pip install https://github.com/3g15h1/paperjay/archive/refs/heads/main.tar.gz
 DATA_DIR=~/paperjay-data ~/paperjay/bin/paperjay serve
 ```

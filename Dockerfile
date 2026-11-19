@@ -5,7 +5,7 @@ FROM python:3.13-slim-trixie
 # --build-arg OCR_LANGS="eng deu …", Debian package names tesseract-ocr-<lang>).
 ARG OCR_LANGS="eng deu fra spa ita nld por"
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tesseract-ocr ghostscript unpaper poppler-utils pngquant tzdata \
+ && apt-get install -y --no-install-recommends tesseract-ocr ghostscript unpaper poppler-utils pngquant tzdata fonts-dejavu-core \
     $(for l in $OCR_LANGS; do echo tesseract-ocr-$l; done) \
  && rm -rf /var/lib/apt/lists/*
 

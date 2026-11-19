@@ -32,7 +32,7 @@ export function mailSetup(view, me) {
     list.innerHTML = data.accounts.map((a) => {
       const busy = data.running.includes(a.id);
       const last = busy ? "Checking now…" : a.last_run_at ? `${a.last_ok ? "" : "✕ "}${a.last_message} · ${ago(new Date(a.last_run_at * 1000).toISOString())}` : "Not checked yet";
-      const filters = [a.from_filter && `only from ${a.from_filter}`, a.subject_filter && `subject mentions ${a.subject_filter}`, a.unread_only && "unread only"].filter(Boolean).join(" · ");
+      const filters = [a.from_filter && `only from ${a.from_filter}`, a.subject_filter && `subject mentions ${a.subject_filter}`, a.unread_only && "unread only", a.email_pdf === "always" ? "the email too" : a.email_pdf === "no_attachment" ? "the email when nothing is attached" : ""].filter(Boolean).join(" · ");
       return `<div class="item"><span class="main"><div class="t">${esc(a.name)} <span class="faint small">${esc(a.folder)}${a.enabled ? "" : " · not checked at night"}</span></div>
         <div class="sub" style="${a.last_ok === false && !busy ? "color:var(--bad)" : ""}">${esc(last)}</div>
         ${filters ? `<div class="sub faint">${esc(filters)}</div>` : ""}</span>
@@ -133,6 +133,7 @@ export function mailSetup(view, me) {
           <label class="check"><input type="checkbox" name="everyone"><span>Also take documents from new senders<div class="help">Any email with a PDF or photo attached, from anyone. Handy at first; you can narrow it later.</div></span></label>`
         : `<div class="muted small">No emails with a PDF or photo attached in the last ${Math.round(found.days / 30)} months, so there's nobody to pick yet.
           PaperJay will take documents from any new email that has one; you can narrow it later with Edit.</div>`}
+        <label class="field">The email itself<select class="input" name="email_pdf"><option value="never">Only take its attachments</option><option value="no_attachment">Save it as a PDF when nothing is attached</option><option value="always">Always save it as a PDF too</option></select></label>
         <label class="field">After taking the attachments<select class="input" name="after"><option value="keep">Leave the email as it is</option><option value="read">Mark the email as read</option></select></label>
         <div data-out class="small"></div>
         <div class="acts"><button type="button" class="btn ghost" data-back>Back</button><span style="flex:1"></span><button class="btn primary">Start collecting</button></div></form>`);
@@ -145,7 +146,7 @@ export function mailSetup(view, me) {
         if (!everyone && !picked.length) return err(root.querySelector("[data-out]"), "Tick at least one sender, or “Also take documents from new senders”.");
         const btn = f.querySelector("button.primary"); btn.disabled = true; btn.textContent = "Saving…";
         try {
-          const made = await api("/api/mail/accounts", { method: "POST", quiet: true, body: { ...acc, after: f.after.value,
+          const made = await api("/api/mail/accounts", { method: "POST", quiet: true, body: { ...acc, after: f.after.value, email_pdf: f.email_pdf.value,
             from_filter: everyone ? "" : picked.join(", "), look_back_days: found.days, enabled: true } });
           await api(`/api/mail/accounts/${made.id}/check`, { method: "POST", quiet: true }).catch(() => {});
           closeModal(); draw();
@@ -176,6 +177,7 @@ export function mailSetup(view, me) {
         <div class="row" style="align-items:flex-end">
           <label class="field" style="flex:1">Include emails from the last … days<input class="input" name="look_back_days" type="number" min="1" max="3650"></label>
           <label class="check" style="flex:2"><input type="checkbox" name="unread_only"><span>Only unread emails</span></label></div>
+        <label class="field">The email itself<select class="input" name="email_pdf"><option value="never">Only take its attachments</option><option value="no_attachment">Save it as a PDF when nothing is attached</option><option value="always">Always save it as a PDF too</option></select><span class="help">For bills and statements written in the email instead of attached. The PDF shows the sender, date, subject and text (no pictures).</span></label>
         <label class="field">After taking the attachments<select class="input" name="after"><option value="keep">Leave the email as it is</option><option value="read">Mark the email as read</option><option value="move">Move the email to a folder</option></select></label>
         <label class="field" data-move>Move it to this folder<input class="input" name="move_to" list="mailFolders" placeholder="PaperJay"><span class="help">Make the folder in your email app first.</span></label>
         <label class="field">A name for this mailbox<input class="input" name="name" placeholder="e.g. Bills inbox"><span class="help">Only shown here, to tell your mailboxes apart.</span></label>
@@ -186,6 +188,7 @@ export function mailSetup(view, me) {
       </form>`);
     const f = box.querySelector("form"), out = box.querySelector("[data-out]");
     for (const k of ["host", "port", "security", "username", "password", "folder", "from_filter", "subject_filter", "look_back_days", "after", "move_to", "name"]) f[k].value = a[k] ?? "";
+    f.email_pdf.value = a.email_pdf || "never";
     f.unread_only.checked = !!a.unread_only; f.enabled.checked = a.enabled !== false; f.preset.value = preset;
     const sync = () => {
       const p = PRESETS[f.preset.value];
@@ -199,7 +202,8 @@ export function mailSetup(view, me) {
     const values = () => ({ ...(acc ? { id: acc.id } : {}), name: f.name.value.trim() || f.username.value.trim(), host: f.host.value.trim(), port: +f.port.value || 993,
       security: f.security.value, username: f.username.value.trim(), password: f.password.value, folder: f.folder.value.trim() || "INBOX",
       from_filter: f.from_filter.value, subject_filter: f.subject_filter.value, look_back_days: +f.look_back_days.value || 30,
-      unread_only: f.unread_only.checked, after: f.after.value, move_to: f.move_to.value.trim(), enabled: f.enabled.checked });
+      unread_only: f.unread_only.checked, after: f.after.value, move_to: f.move_to.value.trim(), enabled: f.enabled.checked,
+      email_pdf: f.email_pdf.value });
     box.querySelector("[data-test]").onclick = async (e) => {
       e.target.disabled = true; out.innerHTML = `<span class="faint">Signing in…</span>`;
       try {

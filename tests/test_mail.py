@@ -229,3 +229,46 @@ def test_api(tmp_path, monkeypatch):
         assert client.put("/api/settings", json={"mail_time": "03:15"}).json()["mail_time"] == "03:15"
         assert client.delete(f"/api/mail/accounts/{acc['id']}").status_code == 204
         assert client.get("/api/mail").json()["accounts"] == []
+
+
+# ---- the email itself as a PDF (0.7.7) ----
+
+def test_email_pdf_when_nothing_is_attached(con, store, account):
+    import subprocess
+    acc = account(email_pdf="no_attachment")
+    imap = FakeIMAP({1: message(subject="Your November bill", body="Amount due $61.20 by 12/13/2026"),
+                     2: message(subject="Statement", attach=[("s.pdf", text_pdf("stmt"), "application/pdf")])})
+    res = _run(con, store, acc, imap)
+    assert res.ok and res.emails == 2 and res.added == 2
+    names = sorted(r[0] for r in con.execute("SELECT filename FROM uploads"))
+    assert names == ["Your November bill.pdf", "s.pdf"]           # no PDF of the email that had a document
+    row = con.execute("SELECT checksum FROM documents WHERE original_name = 'Your November bill.pdf'").fetchone()
+    text = subprocess.run(["pdftotext", str(store.path("originals", row[0], ".pdf")), "-"],
+                          capture_output=True, text=True).stdout
+    assert "Your November bill" in text and "Amount due $61.20" in text and "From: bills@acme.com" in text
+
+
+def test_email_pdf_always_and_never(con, store, account):
+    imap = FakeIMAP({1: message(subject="Invoice", attach=[("i.pdf", text_pdf("inv"), "application/pdf")])})
+    assert _run(con, store, account(email_pdf="always"), imap).added == 2
+    plain = FakeIMAP({1: message(subject="Only text", body="nothing attached")})
+    res = _run(con, store, account(name="other", email_pdf="never"), plain)
+    assert res.added == 0 and res.emails == 0
+    with pytest.raises(ValueError):
+        account(name="bad", email_pdf="sometimes")
+
+
+def test_html_email_becomes_text():
+    from paperjay import emailpdf
+    m = EmailMessage()
+    m["From"], m["Subject"], m["Date"] = "shop@example.com", "Order 12", "Fri, 07 Nov 2026 09:12:00 +0000"
+    m.set_content("<html><head><style>p{color:red}</style><title>t</title></head><body><p>Hi <b>Alex</b></p>"
+                  "<table><tr><td>Total</td><td>$12.00</td></tr></table><script>alert(1)</script>"
+                  "<img src='http://tracker.example/p.gif'></body></html>", subtype="html")
+    assert emailpdf.body_text(m) == "Hi Alex\n\nTotal $12.00"
+    assert emailpdf.render(m).startswith(b"%PDF")
+    assert emailpdf.file_name(m) == "Order 12.pdf"
+    m2 = EmailMessage()
+    m2["Subject"] = 'a/b:c*?"<>|'
+    m2.set_content("x")
+    assert emailpdf.file_name(m2) == "a b c.pdf"

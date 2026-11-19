@@ -130,7 +130,7 @@ else
     sleep 2
   done
   [ "$NET_OK" = 1 ] || die "CT $VMID can't resolve deb.debian.org with DNS $DNS: check its network, or pass --nameserver"
-  PKGS="python3 python3-venv curl ca-certificates tesseract-ocr ghostscript unpaper poppler-utils pngquant"
+  PKGS="python3 python3-venv curl ca-certificates tesseract-ocr ghostscript unpaper poppler-utils pngquant fonts-dejavu-core"
   for l in $LANGS; do PKGS="$PKGS tesseract-ocr-$l"; done
   say "Installing OCR tools ($LANGS)"
   in_ct "export DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8 LANG=C.UTF-8; apt-get update -q && apt-get install -y -q --no-install-recommends $PKGS >/dev/null"

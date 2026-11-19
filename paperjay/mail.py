@@ -8,6 +8,8 @@ remembered (mail_seen, by IMAP UID), so each is taken once. Afterwards the email
 read, or moved to another folder.
 
 Attachments that aren't documents are skipped, and so are small inline pictures (logos, signatures).
+A mailbox can also add the email itself as a PDF (email_pdf: when it has no document attached, or always),
+for bills that are written in the email rather than attached.
 Gmail, iCloud, Fastmail, Yahoo and most providers need an app password for IMAP; Outlook.com only
 allows OAuth, which PaperJay doesn't do.
 """
@@ -27,7 +29,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import PurePath
 
-from . import intake, settings
+from . import emailpdf, intake, settings
 from .db import connect, get_setting, set_setting, transaction
 
 log = logging.getLogger("paperjay")
@@ -38,7 +40,7 @@ SMALL_INLINE = 40 * 1024          # inline pictures smaller than this are logos,
 DOC_TYPES = ("application/pdf", "image/")
 DOC_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".heic", ".heif", ".webp"}
 FIELDS = ("name", "host", "port", "security", "username", "password", "folder", "from_filter", "subject_filter",
-          "unread_only", "look_back_days", "after", "move_to", "enabled")
+          "unread_only", "look_back_days", "after", "move_to", "enabled", "email_pdf")
 HIDDEN = "••••••"
 
 
@@ -93,6 +95,8 @@ def _clean(values: dict, partial: bool = False) -> dict:
                 raise ValueError("security must be ssl, starttls or none")
             if k == "after" and v not in ("keep", "read", "move"):
                 raise ValueError("after must be keep, read or move")
+            if k == "email_pdf" and v not in ("never", "no_attachment", "always"):
+                raise ValueError("email_pdf must be never, no_attachment or always")
             if k == "host" and not re.fullmatch(r"[A-Za-z0-9.\-:\[\]]+", v):
                 raise ValueError("server must be a host name like imap.example.com")
         out[k] = v
@@ -364,6 +368,12 @@ def run(con: sqlite3.Connection, store, acc: dict, max_bytes: int, today: date |
                 continue
             docs = attachments(msg)
             subject = str(msg.get("Subject", "")).strip()
+            mode = acc.get("email_pdf") or "never"
+            if mode == "always" or (mode == "no_attachment" and not docs):
+                try:   # the email itself, for bills that are in its body (emailpdf.py)
+                    docs = [(emailpdf.file_name(msg), emailpdf.render(msg))] + docs
+                except Exception:
+                    log.exception("mail %s: couldn't make a PDF of the email %r", acc["name"], subject[:80])
             for name, data in docs:
                 up = intake.ingest(con, store, io.BytesIO(data), name, source="email", max_bytes=max_bytes,
                                    user_id=acc.get("user_id"),

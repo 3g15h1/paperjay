@@ -29,13 +29,19 @@ Microsoft's own sign-in yet: add an Outlook rule that forwards your bills to ano
 - Every night at the time under Settings → Email (02:30 by default, the server's time; empty turns the
   nightly check off) each mailbox is checked. **Check now** checks one straight away. If the server was off
   at that time, the check runs when it's back.
-- Only emails with a PDF or photo attached are taken, and each email only once. Other attachments
+- Emails with a PDF or photo attached are taken, each email only once. Other attachments
   (Word files, calendar invites) and small pictures inside the email (logos, signatures) are skipped.
 - Each attachment becomes its own document and is read, filed and indexed like an upload (source
   "email"). A file that's already in PaperJay is recognised and not added twice.
 - Emails that didn't pass the filters aren't remembered: if you change the filters later, the next check
   can still take them.
-- Emails without attachments (a bill that's only in the email's text) aren't saved yet.
+- **The email itself** (in each mailbox's settings): for bills and statements written in the email rather
+  than attached, PaperJay can save the email as a PDF: **when nothing is attached**, or **always** (next to
+  its attachments). The PDF shows who it's from, to whom, the date, the subject and the email's text, and
+  lists the names of its attachments. Pictures and links in the email are never loaded (no tracking
+  pixels). The default, **only take its attachments**, leaves such emails alone. The PDF uses the DejaVu
+  font (`fonts-dejavu-core`, in the Docker image and the Proxmox install) so any language shows; without it
+  only Western European letters do.
 
 ## Privacy
 

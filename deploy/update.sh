@@ -46,6 +46,16 @@ if [ -x "$ROOT/current/venv/bin/paperjay" ] && [ -f /var/lib/paperjay/paperjay.d
   echo "BACKUP=$BACKUP"
 fi
 
+# 0.7.7: a font with every common script, for emails saved as PDFs (without it PaperJay falls back to a
+# basic font that shows accented Latin letters only)
+if command -v apt-get >/dev/null 2>&1 && [ ! -f /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf ]; then
+  echo "==> installing the DejaVu font"
+  export DEBIAN_FRONTEND=noninteractive
+  { apt-get install -y -q --no-install-recommends fonts-dejavu-core >/dev/null 2>&1 \
+    || { apt-get update -q >/dev/null 2>&1 && apt-get install -y -q --no-install-recommends fonts-dejavu-core >/dev/null 2>&1; }; } \
+    || echo "    couldn't install it now (no network?); emails are saved with the basic font"
+fi
+
 # 0.5.3: PaperJay itself reads the token (only to see whether a newer release is out)
 if [ -s /etc/paperjay/github-token ] && id paperjay >/dev/null 2>&1; then
   chgrp paperjay /etc/paperjay/github-token && chmod 640 /etc/paperjay/github-token

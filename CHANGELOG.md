@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.7
+
+- **Bills that are written in the email, not attached.** Each mailbox (Settings → Email) now has **The
+  email itself**: save it as a PDF **when nothing is attached**, or **always** (next to its attachments).
+  The PDF shows the sender, date, subject and text of the email and is filed like any other document, so
+  "Your November bill: $61.20 due" ends up in Coming up too. Pictures and links in the email are never
+  loaded. The default stays as before: only the attachments are taken.
+- The Docker image and the Proxmox install now include the DejaVu font so emails in any language show;
+  updating a Proxmox install adds it.
+- Changes the database (a new column for the mailbox choice); PaperJay backs it up first, as always.
+
 ## 0.7.6
 
 - **The words you searched for are marked on the page.** Open a document from a Library search or from
