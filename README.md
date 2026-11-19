@@ -8,13 +8,19 @@ reads it with OCR, files it (title, date, company, type, tags) and lets you find
 documents they came from, and every number in them is checked against those documents. AI is optional and
 runs on your own hardware.
 
-![The start page: a question box, what's coming up, and recent documents](docs/screenshots/home.png)
+![The start page: a greeting, the box to search or ask, what's coming up, what needs attention and recent documents](docs/screenshots/home.png)
 
-| Ask | Library | On a phone |
+| Ask | Totals | Library |
 |---|---|---|
-| ![A cited answer](docs/screenshots/answer.png) | ![The library](docs/screenshots/library.png) | ![An instant answer on a phone](docs/screenshots/phone-answer.png) |
+| ![An instant answer with its source](docs/screenshots/answer.png) | ![Medical costs added up, with the receipts](docs/screenshots/total.png) | ![The library](docs/screenshots/library.png) |
 
-*Screenshots use made-up documents.*
+**On a phone** (it installs as an app):
+
+| Start page | Settings | Swipe to delete | AI assistants |
+|---|---|---|---|
+| ![The start page on a phone, with the tab bar and its round Add button](docs/screenshots/phone-home.png) | ![Settings in groups, each with its current choice](docs/screenshots/phone-settings.png) | ![A document swiped left to show its delete button](docs/screenshots/phone-swipe.png) | ![Making an access key for Claude with chosen permissions](docs/screenshots/phone-assistants.png) |
+
+*Screenshots use made-up documents. The answers shown need no AI.*
 
 ## What it does
 
@@ -38,6 +44,8 @@ runs on your own hardware.
 - **Works with AI assistants**: a built-in MCP server lets Claude (or another assistant) search, read, add,
   change and delete documents, with an access key that has only the permissions you choose
   ([docs/mcp.md](docs/mcp.md)).
+- **Feels at home on a phone**: install it from the browser; a tab bar with a big **Add** button, swipe a
+  document left to delete it, share files to PaperJay, scan with the camera.
 - **Remembers dates**: bills coming due and policies expiring, on the start page, in your phone's calendar,
   and as JSON for Home Assistant.
 - **Gets out of your way**: one container, one data folder (SQLite, no Postgres or Redis), a plain-folder
@@ -71,7 +79,7 @@ default model on a CPU; a GPU makes it fast).
 
 - [Installing](docs/install.md) · [Choosing an AI model](docs/ai-models.md) · [Backups](docs/backups.md)
 - [Moving from Paperless-ngx](docs/migrate-from-paperless.md) · [Phones: camera, share sheet, shortcuts, calendar](docs/phone.md) · [Email](docs/email.md)
-- [Home Assistant](docs/home-assistant.md) · [Export format](docs/export.md) · [API](docs/api.md)
+- [AI assistants (MCP)](docs/mcp.md) · [Home Assistant](docs/home-assistant.md) · [Export format](docs/export.md) · [API](docs/api.md)
 
 ## How it compares
 
@@ -82,7 +90,9 @@ default model on a CPU; a GPU makes it fast).
 | AI filing | optional, local; grounded in the text, never overrides people | rule-based matching, optional AI suggestions | the add-on's job |
 | Questions with cited, checked answers | yes, plus totals and instant facts | no | chat (paperless-ai) |
 | Due and expiry dates, calendar feed | yes | no | no |
-| Mail import, workflows, barcode splitting, custom fields, per-document permissions | not yet | **yes** | via Paperless |
+| Mail import | yes | yes | via Paperless |
+| Works with AI assistants (MCP), with per-key permissions | built in | not built in (community add-ons) | not built in |
+| Workflows, barcode splitting, custom fields, per-document permissions | not yet | **yes** | via Paperless |
 
 Paperless-ngx is the mature, feature-rich choice for large or shared archives with complex rules. PaperJay
 aims at households: fewer moving parts, filing that mostly happens by itself, and answers instead of

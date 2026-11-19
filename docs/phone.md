@@ -7,7 +7,7 @@ button; Chrome: the menu). It opens full screen, like an app.
 
 ## Scan documents with the camera
 
-**Add documents → Scan with camera.** Point the phone at the page: PaperJay outlines the page while you aim,
+**Add** (the round button in the middle of the bar; **Add documents** on a computer) **→ Scan with camera.** Point the phone at the page: PaperJay outlines the page while you aim,
 and when you hold still for a moment (the ring around the button fills up) it takes the photo by itself. Put
 the next page down and it takes that one too; tap **Done** when you're finished. **Auto** switches to
 taking each photo with the button instead, and ⚡ turns on the light where the phone allows it.
@@ -20,7 +20,7 @@ the edges.
 ### One-time setup: the secure address
 
 Phones only let web apps use the live camera over **https**. PaperJay has its own HTTPS for this, with a
-certificate it makes itself; each phone trusts it once. Open **Settings → Use the camera scanner on this phone** on the phone
+certificate it makes itself; each phone trusts it once. Open **Settings → Camera scanner** on the phone
 and follow the steps (iPhone: download a profile, install it, then turn it on under Settings → General →
 About → Certificate Trust Settings; Android: install a CA certificate). Then open the https address it
 shows and, if PaperJay is on your home screen, add it again from there.
