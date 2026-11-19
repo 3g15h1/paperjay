@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 import threading
 
-from . import __version__, analyze, api, ask_api, auth_api, db, health_api, https_api, index_api, indexing, intake, jobs, library_api, mail, mail_api, mcp_api, meaning, neighbours, ocr, paper_api, papers, processing, profile, scan_api, transfer_api, ui, updates
+from . import __version__, analyze, api, ask_api, auth_api, db, health_api, https_api, index_api, indexing, intake, jobs, library_api, mail, mail_api, mcp_api, meaning, neighbours, ocr, paper_api, papers, processing, profile, scan_api, taxpack_api, transfer_api, ui, updates
 from .config import Config
 from .consume import ConsumeFolder
 from .library import Library
@@ -163,6 +163,7 @@ def create_app(config: Config | None = None, start_worker: bool = True) -> FastA
     app.include_router(health_api.router)
     app.include_router(index_api.router)
     app.include_router(transfer_api.router)
+    app.include_router(taxpack_api.router)
     app.include_router(scan_api.router)
     app.include_router(mail_api.router)
     app.include_router(https_api.router)

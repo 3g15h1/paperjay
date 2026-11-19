@@ -42,10 +42,11 @@ const backBar = () => `<div class="head" style="margin-bottom:6px"><a class="btn
 const LINKS = [
   { href: "/labels", color: "blue", icon: "tag", title: "Tags & companies", sub: "Rename, merge or remove the labels your documents are sorted by" },
   { href: "/trash", color: "red", icon: "trash", title: "Trash", sub: "Deleted documents, kept for 30 days in case you change your mind" },
+  { href: "/taxpack", color: "green", icon: "download", title: "Tax pack", sub: "Every document for one tax year in one zip, with a spreadsheet of the amounts" },
   { href: "/secure", color: "teal", icon: "camera", title: "Camera scanner", sub: "A one-time setup on this phone so the camera can find the page and take the photo for you" },
 ];
 const GROUPS = [
-  { title: "Documents", items: ["/labels", "/trash", "filing", "paper"] },
+  { title: "Documents", items: ["/labels", "/trash", "/taxpack", "filing", "paper"] },
   { title: "Adding documents", items: ["/secure", "email", "import"] },
   { title: "Reading and asking", items: ["reading", "ai", "questions", "feedback"] },
   { title: "People and reminders", items: ["people", "household", "reminders"] },

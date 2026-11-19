@@ -1,2 +1,2 @@
 """PaperJay: file your documents, then ask them questions."""
-__version__ = "0.6.4"
+__version__ = "0.7.0"

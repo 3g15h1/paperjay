@@ -47,4 +47,6 @@ Server-Sent Events.
 | `POST /api/documents/bulk` | `{ids, action, value}`: add_tags, remove_tags, set_correspondent, set_type, trash, … |
 | `GET/POST /api/labels/{tag,correspondent,document_type}` | labels; `PATCH`, `DELETE`, `POST …/merge` |
 | `GET /api/upcoming` · `GET /calendar.ics` | coming-up dates ([home-assistant.md](home-assistant.md)) |
+| `GET /api/documents.csv?<the same filters>` or `?ids=1,2,3` | the list as a spreadsheet (CSV) |
+| `GET /api/taxpack?year=` · `GET /api/taxpack.zip?year=&categories=&topics=&tags=` | the tax pack ([tax-pack.md](tax-pack.md)) |
 | `GET /api/summary` · `GET /api/ai/status` · `GET /healthz` | counts and health |

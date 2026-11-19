@@ -44,6 +44,7 @@ export async function show(view, { query }) {
       <select class="input" id="sort">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select>
       <button class="btn ghost sm" id="reset" hidden>Clear filters</button>
       <button class="btn ghost sm" id="saveView">Save search</button>
+      <a class="btn ghost sm" id="csvList" download title="This list as a spreadsheet (CSV)">${icon("download")} Download list</a>
     </div>
     <div class="chips" id="termChips" style="margin-bottom:8px"></div>
     <div class="chips" id="views" style="margin-bottom:14px"></div>
@@ -55,6 +56,7 @@ export async function show(view, { query }) {
       <button class="btn sm" data-b="mark_reviewed">Mark reviewed</button>
       <button class="btn sm" data-b="number_in_order">Number in order</button>
       <button class="btn sm" id="printLabels">Print labels</button>
+      <button class="btn sm" id="csvPicked">Download list</button>
       <button class="btn sm" data-b="analyze">Re-file with AI</button>
       <button class="btn sm danger" data-b="trash">Move to trash</button>
       <button class="btn ghost sm" id="selAll">Select all</button>
@@ -198,6 +200,12 @@ export async function show(view, { query }) {
       bulk("analyze", null, (n) => `${plural(n, "document")} queued for the AI`);
   });
   // ---------- paper labels (Phase D) ----------
+  // the list as a spreadsheet: every match of the current filters, or just the selected documents
+  els.csvList.onclick = () => { const p = params(); delete p.sort; els.csvList.href = "/api/documents.csv" + qs(p); };
+  els.csvPicked.onclick = () => {
+    if (!picked.size) { toast("Pick some documents first"); return; }
+    const a = document.createElement("a"); a.href = "/api/documents.csv?ids=" + [...picked].join(","); a.download = ""; a.click();
+  };
   els.printLabels.onclick = () => {
     const box = modal(`<h1 style="font-size:17px">Print paper labels</h1>
       <div style="display:grid;gap:12px">

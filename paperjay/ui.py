@@ -10,7 +10,7 @@ from . import __version__
 from .api import Con, User, _ingest
 
 STATIC = Path(__file__).with_name("static")
-APP_ROUTES = ["/", "/login", "/setup", "/browse", "/index", "/library", "/documents/{doc_id}", "/upload", "/review", "/trash", "/labels", "/settings", "/settings/{section}", "/secure"]
+APP_ROUTES = ["/", "/login", "/setup", "/browse", "/index", "/library", "/documents/{doc_id}", "/upload", "/review", "/trash", "/labels", "/settings", "/settings/{section}", "/secure", "/taxpack"]
 router = APIRouter()
 _shell: str | None = None
 

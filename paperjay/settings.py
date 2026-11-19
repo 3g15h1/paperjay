@@ -51,12 +51,15 @@ DEFAULTS = {
     "ai_batch_hours": "01:00-06:00",  # when bulk AI re-reads may run (B.4), in the server's time zone (TZ)
     # Email
     "mail_time": "02:30",          # when mailboxes are checked each night (server time, HH:MM); "" = never
+    # Tax pack
+    "tax_year_start": "01-01",     # month-day the tax year starts: 01-01, 04-06 (UK), 07-01 (Australia)…
     # Updates
     "update_check": True,          # ask GitHub every few hours whether a newer PaperJay is out, and tell admins
 }
 ENV = {"ocr_language": "OCR_LANGUAGE", "date_order": "DATE_ORDER", "ai_provider": "AI_PROVIDER", "ai_url": "AI_URL", "ai_model": "AI_MODEL", "ai_api_key": "AI_API_KEY",
        "ai_threads": "AI_THREADS", "embed_model": "EMBED_MODEL",
-       "embed_source": "EMBED_SOURCE", "update_check": "UPDATE_CHECK"}
+       "embed_source": "EMBED_SOURCE", "update_check": "UPDATE_CHECK",
+       "tax_year_start": "TAX_YEAR_START"}
 SECRET = {"ai_api_key", "index_secret"}
 
 
@@ -77,6 +80,9 @@ def _validate(key: str, value):
             raise ValueError(f"OCR languages must be installed ones: {', '.join(sorted(have - {'osd'})) or 'none found'}")
     if key == "mail_time" and value and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", str(value).strip()):
         raise ValueError("mail_time must be a time like 02:30, or empty")
+    if key == "tax_year_start":
+        from .taxpack import parse_start
+        parse_start(value)
     if key == "duplicate_detection" and value not in ("log", "review"):
         raise ValueError("duplicate_detection must be 'log' or 'review'")
     if key == "ai_batch_hours" and not re.fullmatch(

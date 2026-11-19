@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0
+
+- **A tax pack for your accountant.** Settings → Tax pack (or `/taxpack`) gathers everything for one tax
+  year: pick the year, then tap the categories, topics and tags that belong in it (medical, income, tax,
+  donations, child care… are chosen to start with). The page lists the documents and adds up the payments in
+  each category. **Download the tax pack** gives one zip with the documents in a folder per category (the
+  searchable PDF where there is one), a spreadsheet of every document's date, company, amount and paper
+  number, and a short README with the totals.
+- **Your tax year, wherever you live.** The tax year starts on January 1 unless you change it on the Tax pack
+  page (April 6 for the UK, July 1 for Australia, or `TAX_YEAR_START=04-06`). Tax forms that arrive after the
+  year ends (a W-2 in January) count for the year they name.
+- Only payments are added up: copies, price lists, pay slips and tax forms are listed with their amount but
+  not added, and the spreadsheet says why.
+- **Download the Library list as a spreadsheet.** Under Filters, **Download list** saves every document that
+  matches the search and filters as a CSV file; with documents selected, **Download list** saves just those.
+
 ## 0.6.4
 
 - **The Update button always offers the newest version.** It used to trust which release GitHub marked as

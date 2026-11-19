@@ -109,7 +109,46 @@ DOCS = [
           card=dict(kind="contract", category="home", total=None, dates=[("effective", TODAY - timedelta(days=200)), ("expires", TODAY + timedelta(days=165))],
                     ids=[], summary="Apartment lease agreement."))),
 ]
-TAG_COLORS = {"Utilities": "#6ea8fe", "Bills": "#f2c14e", "Car": "#5ccfe6", "Insurance": "#7fd1a1", "Medical": "#f07178",
+# Last tax year's paperwork (for the tax pack and the shredding list), added before the documents above so
+# those stay the "recent" ones on the start page.
+LAST = TODAY.year - 1
+EXTRA_DOCS = [
+    ("W2.pdf", page("Northwind Logistics", f"Form W-2 Wage and Tax Statement {LAST}", [
+        ("Employee", "Alex Rivera"), ("Employer ID number", "00-0000417"), ("Tax year", str(LAST)), "",
+        ("Wages, tips, other compensation", "$58,240.00"), ("Federal income tax withheld", "$6,912.40"),
+        ("Social security wages", "$58,240.00"), "", f"Issued {long(date(TODAY.year, 1, 24))}."], accent=(60, 60, 120)),
+     dict(title=f"W-2 {LAST} Northwind Logistics", correspondent="Northwind Logistics", type="Tax form", tags=["Taxes"],
+          card=dict(kind="tax", category="income", total=58240.00, dates=[("issued", date(TODAY.year, 1, 24))],
+                    ids=[("employer id", "00-0000417")], summary=f"Wage and tax statement for {LAST}."))),
+    ("donation.jpg", page("Harbor Food Bank", "Donation receipt", [
+        ("Date", us(date(LAST, 6, 14))), ("Donor", "Alex Rivera"), ("Receipt", "HFB-30917"), "",
+        ("**", "Charitable donation                       $250.00"), "",
+        "No goods or services were provided in exchange for this donation."], accent=(200, 110, 30)),
+     dict(title="Harbor Food Bank donation receipt", correspondent="Harbor Food Bank", type="Receipt", tags=["Taxes"],
+          card=dict(kind="receipt", category="other", total=250.00, dates=[("paid", date(LAST, 6, 14))],
+                    ids=[("receipt", "HFB-30917")], summary="Receipt for a charitable donation."))),
+    ("pharmacy.jpg", page("Corner Pharmacy", "Prescription receipt", [
+        ("Date", us(date(LAST, 3, 2))), ("Rx number", "RX-77120"), ("Patient", "Alex Rivera"), "",
+        ("Prescription (30 days)", "$42.18"), "", ("**", "Amount paid                                $42.18")], accent=(150, 60, 90)),
+     dict(title="Corner Pharmacy prescription receipt", correspondent="Corner Pharmacy", type="Receipt", tags=["Medical"],
+          card=dict(kind="receipt", category="medical", total=42.18, dates=[("paid", date(LAST, 3, 2))],
+                    ids=[("rx", "RX-77120")], summary="Prescription receipt."))),
+    ("daycare.pdf", page("Little Acorns Daycare", f"Annual statement {LAST}", [
+        ("Statement date", us(date(LAST, 12, 31))), ("Child", "Sam Rivera"), ("Provider tax ID", "00-0000218"), "",
+        ("Child care, January to December", "$9,600.00"), "", ("**", "Total paid in the year                  $9,600.00"),
+        "", "Keep this statement for your child care tax credit."], accent=(90, 140, 60)),
+     dict(title=f"Little Acorns daycare statement {LAST}", correspondent="Little Acorns Daycare", type="Statement", tags=["Taxes"],
+          card=dict(kind="statement", category="other", total=9600.00, dates=[("issued", date(LAST, 12, 31))],
+                    ids=[("tax id", "00-0000218")], summary="Child care costs for the year."))),
+    ("statement feb.pdf", page("Example Credit Union", "Checking account statement", [
+        ("Statement period", f"{us(date(LAST, 2, 1))} to {us(date(LAST, 2, 28))}"), ("Account", "CU-0088 1203"), "",
+        ("Opening balance", "$2,410.55"), ("Deposits", "$4,853.30"), ("Withdrawals", "$4,120.12"),
+        ("**", "Closing balance                          $3,143.73")], accent=(40, 90, 160)),
+     dict(title="Credit union statement February", correspondent="Example Credit Union", type="Statement", tags=[],
+          card=dict(kind="statement", category="finance", total=None, dates=[("issued", date(LAST, 2, 28))],
+                    ids=[("account", "CU-0088 1203")], summary="Monthly checking account statement."))),
+]
+TAG_COLORS = {"Taxes": "#e5a50a", "Utilities": "#6ea8fe", "Bills": "#f2c14e", "Car": "#5ccfe6", "Insurance": "#7fd1a1", "Medical": "#f07178",
               "Electronics": "#c792ea", "Home": "#d4a373"}
 
 
@@ -131,7 +170,7 @@ def main(data_dir: str) -> None:
     con.close()
     with TestClient(create_app(Config(data_dir=data, consume_dir=None)), headers={"Authorization": f"Token {token}"}) as c:
         ids = []
-        for name, content, _ in DOCS:
+        for name, content, _ in EXTRA_DOCS + DOCS:
             r = c.post("/api/documents", files={"file": (name, content)}).json()
             ids.append(r["uploads"][0]["document_id"])
             print("uploaded", name)
@@ -139,7 +178,8 @@ def main(data_dir: str) -> None:
             time.sleep(1)
     con = db.connect(data / "paperjay.db")
     lib = Library(con)
-    for doc_id, (_, _, f) in zip(ids, DOCS):
+    from paperjay import profile
+    for doc_id, (_, _, f) in zip(ids, EXTRA_DOCS + DOCS):
         if not doc_id:
             continue
         tag_ids = []
@@ -161,6 +201,7 @@ def main(data_dir: str) -> None:
             lib.update(doc_id, by="system", needs_review=True, suggestions={"review": f["review"]})
         with db.transaction(con):
             analyze.save_card(con, doc_id, lib.get(doc_id)["content"], "demo", card)
+        profile.refile(con, doc_id)   # category, topics and the A–Z index from the card just saved
     print(f"demo library ready in {data}: {len([i for i in ids if i])} documents")
     print(json.dumps(Library(con).counts()))
 

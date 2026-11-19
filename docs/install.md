@@ -83,7 +83,7 @@ Most settings live in the app. These are read when PaperJay starts:
 | `HTTPS_NAMES` | | extra names or addresses for its certificate, e.g. `192.168.1.20, nas.lan` (it adds this machine's own, and the address you open it at) |
 | `OCR_WORKERS` | `1` | documents read at the same time (the CPU cores are shared between them) |
 | `MAX_UPLOAD_MB` / `MAX_PAGES` / `OCR_TIMEOUT` | 200 / 500 / 1800 | limits per document |
-| `OCR_LANGUAGE`, `DATE_ORDER`, `AI_PROVIDER`, `AI_URL`, `AI_MODEL`, `AI_API_KEY`, `EMBED_MODEL`, `AI_THREADS` | | first values for those settings (the app's own settings win) |
+| `OCR_LANGUAGE`, `DATE_ORDER`, `AI_PROVIDER`, `AI_URL`, `AI_MODEL`, `AI_API_KEY`, `EMBED_MODEL`, `AI_THREADS`, `TAX_YEAR_START` | | first values for those settings (the app's own settings win) |
 
 ## Command line
 
