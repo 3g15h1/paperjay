@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2
+
+- **Settings is easier to find your way around.** It opens with a search box and a card for your account,
+  then the options in groups: Documents, Adding documents, Reading and asking, People and reminders, and
+  Connections and look. Each option has its own coloured icon and shows its current choice on the right
+  (for example "English", "60 days ahead", "Off" or the version you have). Type in the search box to find
+  an option by name or by what it does.
+- Tags & companies, Trash and the camera scanner are in the list on a computer too.
+
 ## 0.6.1
 
 - **A new look for the bar at the bottom of the phone screen.** The **+** is now a big round button that sits

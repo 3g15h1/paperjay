@@ -41,3 +41,16 @@ def test_old_links_to_a_spot_on_the_long_page_still_land():
     # home.js linked /settings#calendar before the sections had their own pages
     assert 'href="/settings/account#calendar"' in (JS / "home.js").read_text(encoding="utf-8")
     assert re.search(r"OLD_ANCHORS = \{[^}]*calendar: \"account\"", SETTINGS)
+
+
+def test_overview_groups_every_section_once_with_a_colour():
+    # 0.6.2: grouped cards like a phone's settings; every section (except the account card) in exactly one group
+    groups = re.search(r"const GROUPS = \[(.*?)\n\];", SETTINGS, re.S).group(1)
+    ids = re.findall(r'"([/\w]+)"', re.sub(r'title: "[^"]*"', "", groups))
+    assert len(ids) == len(set(ids))
+    assert set(KEYS) - {"account"} <= set(ids) and {"/labels", "/trash", "/secure"} <= set(ids)
+    for key in KEYS:
+        assert re.search(rf'\{{ key: "{key}", color: "(blue|green|amber|red|purple|teal|pink|orange)"', SETTINGS), key
+    css = (JS.parent / "app.css").read_text(encoding="utf-8")
+    for colour in ("purple", "teal", "pink", "orange"):
+        assert css.count(f"--{colour}:") == 3, colour   # dark, light, and light by system setting

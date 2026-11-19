@@ -16,46 +16,99 @@ const LANG_NAMES = { eng: "English", deu: "German", fra: "French", spa: "Spanish
 
 // Settings is a list; each entry opens its own page at /settings/<key> with a back button.
 export const SECTIONS = [
-  { key: "account", icon: "user", title: "Your account", sub: "Your password, your calendar link and access keys for apps" },
-  { key: "assistants", icon: "ask", title: "AI assistants (MCP)", sub: "Let Claude or another AI assistant find, read and file your documents, with the permissions you choose" },
-  { key: "people", icon: "users", title: "People", sub: "Who in your household can use PaperJay, and what each person may do", admin: true },
-  { key: "household", icon: "users", title: "Household", sub: "The people your documents are about, so search and questions understand them", admin: true },
-  { key: "reading", icon: "eye", title: "Reading documents", sub: "The languages your documents are in, and how dates are written", admin: true },
-  { key: "ai", icon: "sparkle", title: "Smart filing (AI)", sub: "An AI program on your own computer that names and sorts documents, and smart search", admin: true },
-  { key: "questions", icon: "ask", title: "Questions", sub: "Example questions on the Ask page, and the words your household uses", admin: true },
-  { key: "reminders", icon: "calendar", title: "Reminders", sub: "Bills that are due and things that expire", admin: true },
-  { key: "filing", icon: "redo", title: "Filing", sub: "Re-file every document after you've tidied up", admin: true },
-  { key: "paper", icon: "archive", title: "Paper shelf", sub: "Number the paper originals you keep", admin: true },
-  { key: "email", icon: "mail", title: "Email", sub: "Collect bills and statements that arrive by email", admin: true },
-  { key: "appearance", icon: "sun", title: "Appearance", sub: "Light or dark" },
-  { key: "updates", icon: "download", title: "Updates", sub: "New versions of PaperJay with fixes and new features", admin: true },
-  { key: "import", icon: "upload", title: "Moving in and backing up", sub: "Bring documents over from Paperless-ngx, or download a copy of everything", admin: true },
-  { key: "feedback", icon: "down", title: "Answers marked wrong", sub: "Answers someone gave a 👎, with tips to help PaperJay next time", admin: true },
+  { key: "account", color: "blue", icon: "user", title: "Your account", sub: "Your password, your calendar link and access keys for apps" },
+  { key: "assistants", color: "purple", icon: "ask", title: "AI assistants (MCP)", sub: "Let Claude or another AI assistant find, read and file your documents, with the permissions you choose" },
+  { key: "people", color: "green", icon: "users", title: "People", sub: "Who in your household can use PaperJay, and what each person may do", admin: true },
+  { key: "household", color: "orange", icon: "users", title: "Household", sub: "The people your documents are about, so search and questions understand them", admin: true },
+  { key: "reading", color: "teal", icon: "eye", title: "Reading documents", sub: "The languages your documents are in, and how dates are written", admin: true },
+  { key: "ai", color: "purple", icon: "sparkle", title: "Smart filing (AI)", sub: "An AI program on your own computer that names and sorts documents, and smart search", admin: true },
+  { key: "questions", color: "blue", icon: "ask", title: "Questions", sub: "Example questions on the Ask page, and the words your household uses", admin: true },
+  { key: "reminders", color: "amber", icon: "calendar", title: "Reminders", sub: "Bills that are due and things that expire", admin: true },
+  { key: "filing", color: "pink", icon: "redo", title: "Filing", sub: "Re-file every document after you've tidied up", admin: true },
+  { key: "paper", color: "amber", icon: "archive", title: "Paper shelf", sub: "Number the paper originals you keep", admin: true },
+  { key: "email", color: "orange", icon: "mail", title: "Email", sub: "Collect bills and statements that arrive by email", admin: true },
+  { key: "appearance", color: "blue", icon: "sun", title: "Appearance", sub: "Light or dark" },
+  { key: "updates", color: "green", icon: "download", title: "Updates", sub: "New versions of PaperJay with fixes and new features", admin: true },
+  { key: "import", color: "teal", icon: "upload", title: "Moving in and backing up", sub: "Bring documents over from Paperless-ngx, or download a copy of everything", admin: true },
+  { key: "feedback", color: "red", icon: "down", title: "Answers marked wrong", sub: "Answers someone gave a 👎, with tips to help PaperJay next time", admin: true },
 ];
 // Old links pointed at a spot on the one long page (/settings#calendar); send them to the page that has it now.
 const OLD_ANCHORS = { calendar: "account", email: "email", updates: "updates", import: "import" };
 
 const backBar = () => `<div class="head" style="margin-bottom:6px"><a class="btn ghost sm" href="/settings">← Settings</a></div>`;
-const entry = (href, ic, title, sub, cls = "") => `<a class="item${cls}" href="${href}">${icon(ic)}<span class="main"><div class="t">${title}</div><div class="sub">${sub}</div></span><span class="faint">›</span></a>`;
+// The overview groups everything the way a phone's settings do: a card per group, a coloured tile per row
+// and the current choice on the right. Pages that aren't sections (Tags & companies, Trash, the camera) sit
+// in the groups too.
+const LINKS = [
+  { href: "/labels", color: "blue", icon: "tag", title: "Tags & companies", sub: "Rename, merge or remove the labels your documents are sorted by" },
+  { href: "/trash", color: "red", icon: "trash", title: "Trash", sub: "Deleted documents, kept for 30 days in case you change your mind" },
+  { href: "/secure", color: "teal", icon: "camera", title: "Camera scanner", sub: "A one-time setup on this phone so the camera can find the page and take the photo for you" },
+];
+const GROUPS = [
+  { title: "Documents", items: ["/labels", "/trash", "filing", "paper"] },
+  { title: "Adding documents", items: ["/secure", "email", "import"] },
+  { title: "Reading and asking", items: ["reading", "ai", "questions", "feedback"] },
+  { title: "People and reminders", items: ["people", "household", "reminders"] },
+  { title: "Connections and look", items: ["assistants", "appearance", "updates"] },
+];
+const THEME_NAMES = { system: "Automatic", light: "Light", dark: "Dark" };
+
+function settingsRow(x) {
+  const href = x.href || `/settings/${x.key}`;
+  return `<a class="srow" href="${href}" data-find="${esc((x.title + " " + x.sub).toLowerCase())}">
+    <span class="tile t-${x.color}">${icon(x.icon)}</span><span class="t">${esc(x.title)}</span>
+    <span class="v" data-val="${esc(x.key || x.href.slice(1))}"></span>${icon("chev", "i chev")}</a>`;
+}
 
 function overview(view) {
   const old = location.hash.slice(1);
   const target = OLD_ANCHORS[old] || (SECTIONS.some((x) => x.key === old) ? old : "");
   if (target) { go(`/settings/${target}${old === "calendar" ? "#calendar" : ""}`, { replace: true }); return; }
-  view.innerHTML = `<div class="page narrow">
-    <div class="head"><h1>Settings</h1></div>
-    <div class="card list mobile-more wraplist" style="margin-bottom:12px">
-      ${entry("/labels", "tag", "Tags &amp; companies", "Rename, merge or remove the labels your documents are sorted by")}
-      ${entry("/trash", "trash", "Trash", "Deleted documents, kept for 30 days in case you change your mind")}
-    </div>
-    <div class="card list wraplist" style="margin-bottom:12px">
-      ${entry("/secure", "camera", "Use the camera scanner on this phone", "A one-time setup so the camera can find the page and take the photo for you")}
-    </div>
-    <div class="card list wraplist" id="sections">
-      ${SECTIONS.map((x) => entry(`/settings/${x.key}`, x.icon, esc(x.title), esc(x.sub), x.admin ? " admin-only" : "")).join("")}
-    </div>
-  </div>
-  <style>@media (min-width: 821px) { .mobile-more { display: none; } }</style>`;
+  const admin = me?.role === "admin";
+  const byId = Object.fromEntries([...SECTIONS.map((x) => [x.key, x]), ...LINKS.map((x) => [x.href, x])]);
+  const groups = GROUPS.map((g) => ({ ...g, rows: g.items.map((id) => byId[id]).filter((x) => x && (admin || !x.admin)) }))
+    .filter((g) => g.rows.length);
+  const name = me?.display_name || "You";
+  view.innerHTML = `<div class="page narrow settings-home">
+    <h1>Settings</h1>
+    <label class="search set-search">${icon("search")}<input class="input" id="setFind" type="search" placeholder="Search settings" autocomplete="off"></label>
+    <a class="card acct" href="/settings/account" data-find="${esc((name + " your account password calendar link access keys sign out").toLowerCase())}">
+      <span class="avatar">${esc(name.trim().charAt(0).toUpperCase() || "?")}</span>
+      <span class="main"><div class="t">${esc(name)}</div><div class="sub">Password, calendar and access keys</div></span>${icon("chev", "i chev")}</a>
+    ${groups.map((g) => `<section class="sgroup"><h2>${esc(g.title)}</h2><div class="card scard">${g.rows.map(settingsRow).join("")}</div></section>`).join("")}
+    <div class="empty" id="setNone" hidden>No setting matches that.</div>
+  </div>`;
+  const find = $("#setFind", view);
+  find.addEventListener("input", () => {
+    const q = find.value.trim().toLowerCase();
+    let any = false;
+    $$("[data-find]", view).forEach((r) => { const hit = !q || r.dataset.find.includes(q) || r.closest(".sgroup")?.querySelector("h2").textContent.toLowerCase().includes(q); r.hidden = !hit; any ||= hit; });
+    $$(".sgroup", view).forEach((g) => { g.hidden = !$$(".srow:not([hidden])", g).length; });
+    $("#setNone", view).hidden = any;
+  });
+  fillValues(view, admin);
+}
+
+// The current choice on the right of each row; each one is filled in as its answer arrives.
+async function fillValues(view, admin) {
+  const put = (key, text, cls = "") => { const el = $(`[data-val="${key}"]`, view); if (el && text) { el.textContent = text; el.className = "v " + cls; } };
+  put("appearance", THEME_NAMES[localStorage.getItem("pj-theme") || "system"]);
+  const get = (path) => api(path, { quiet: true }).catch(() => null);
+  get("/api/settings").then((s) => {
+    if (!s) return;
+    put("reading", (s.ocr_language || "eng").split("+").map((c) => LANG_NAMES[c] || c).join(", "));
+    put("ai", s.ai_provider && s.ai_provider !== "off" ? "On" : "Off");
+    put("reminders", `${s.reminder_days} days ahead`);
+    put("paper", s.paper_numbers ? "On" : "Off");
+  });
+  get("/api/summary").then((s) => s && put("trash", s.trash ? plural(s.trash, "document") : "Empty"));
+  get("/api/auth/tokens").then((ts) => { if (ts) { const n = ts.filter((t) => t.permissions).length; put("assistants", n ? plural(n, "key") : "Not set up"); } });
+  get("/healthz").then((h) => h && put("updates", "Version " + h.version));
+  if (!admin) return;
+  get("/api/update/notice").then((n) => n?.show && put("updates", "New: " + n.latest, "new"));
+  get("/api/users").then((u) => u && put("people", plural(u.filter((x) => !x.disabled).length, "person", "people")));
+  get("/api/mail").then((m) => m && put("email", m.accounts.length ? plural(m.accounts.length, "mailbox", "mailboxes") : "Off"));
+  get("/api/feedback").then((f) => f && f.down && put("feedback", String(f.down), "warn"));
 }
 
 export async function show(view, params) {
