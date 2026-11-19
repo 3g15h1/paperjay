@@ -48,3 +48,12 @@ def test_tab_bar_style_raised_round_add_button():
     assert "border-radius: 50%" in plus and "margin-top: -" in plus and "box-shadow" in plus
     bar = re.search(r'<nav class="tabs"[^>]*>(.*?)</nav>', HTML, re.S).group(1)
     assert re.search(r'class="add write-only">.*?</span>Add</a>', bar)
+
+
+def test_start_page_greets_by_first_name_with_the_date():
+    # 0.6.3: "Hi Sam" and today's date; hidden while an answer is shown
+    home = (STATIC / "js" / "home.js").read_text(encoding="utf-8")
+    assert "${greeting()}" in home and "Hi ${esc(first)}" in home
+    assert 'weekday: "long", day: "numeric", month: "long"' in home
+    assert "els.greet.hidden = true" in home
+    assert 'class="btn icon round mobile-only" href="/settings"' in home

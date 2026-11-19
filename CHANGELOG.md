@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3
+
+- **The start page says hello.** It now opens with "Hi" and your first name, today's date under it, and on a
+  phone a round button for Settings. The greeting steps aside while an answer is on the screen.
+
 ## 0.6.2
 
 - **Settings is easier to find your way around.** It opens with a search box and a card for your account,

@@ -1,6 +1,6 @@
 // Home: one box to find or ask (as you type it suggests companies, people, numbers and
 // documents from search.js; Enter asks), what's coming up, what needs attention, recent documents.
-import { $, $$, api, esc, icon, fmtDate, ago, money, plural, docCard, refreshCounts } from "./core.js";
+import { $, $$, api, esc, icon, fmtDate, ago, money, plural, docCard, refreshCounts, me } from "./core.js";
 import { attach } from "./search.js";
 
 export const nav = "home";
@@ -8,8 +8,17 @@ const HKEY = "pj-ask-history";
 const PLACEHOLDERS = ["When does my car insurance expire?", "How much did I spend on medical this year?",
   "What's my policy number?", "Show me my receipts from March", "When is my water bill due?"];
 
+// "Hi Sam" and today's date at the top of the start page; hidden while an answer is shown
+function greeting() {
+  const first = (me?.display_name || me?.username || "").trim().split(/\s+/)[0];
+  const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+  return `<div class="greet" id="greet"><div><h1>${first ? `Hi ${esc(first)}` : "Hi there"}</h1><div class="date">${esc(today)}</div></div>
+    <a class="btn icon round mobile-only" href="/settings" aria-label="Settings" title="Settings">${icon("settings")}</a></div>`;
+}
+
 export async function show(view, { query }) {
   view.innerHTML = `<div class="page narrow">
+    ${greeting()}
     <div class="askwrap"><form class="askbox" id="askForm"><textarea id="q" rows="1" data-searchbox placeholder="${esc(PLACEHOLDERS[0])}" aria-label="Search or ask your documents"></textarea>
       <button class="btn primary" id="go" aria-label="Ask">${icon("send")}</button></form>
       <div class="suggest" id="qSuggest" hidden></div></div>
@@ -156,7 +165,7 @@ export async function show(view, { query }) {
   // ---------- asking ----------
   function stop() { if (es) { es.close(); es = null; } if (tick) { clearInterval(tick); tick = null; } els.go.classList.remove("busy"); autosize(); }
   function resetView(q) {
-    els.home.hidden = true; els.result.hidden = false;
+    els.home.hidden = true; els.greet.hidden = true; els.result.hidden = false;
     els.answer.className = "text"; els.answer.innerHTML = ""; els.facts.innerHTML = ""; els.breakdown.innerHTML = "";
     els.note.hidden = true; els.meta.textContent = ""; els.sources.innerHTML = ""; els.sourcesWrap.hidden = true; els.allLink.hidden = true;
     els.copyBtn.hidden = els.aiBtn.hidden = els.upBtn.hidden = els.downBtn.hidden = true; els.fbBox.hidden = true;

@@ -241,6 +241,11 @@ mark { background: color-mix(in srgb, var(--warn) 24%, transparent); color: inhe
 .sg-item:hover, .sg-item.on { background: var(--hover); }
 .sg-none { padding: 8px; color: var(--muted); font-size: 13px; }
 body.on-home .side-search { display: none; }   /* the Ask box is the search box there */
+.greet { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 2px 18px; }
+.greet h1 { font-size: 32px; line-height: 1.1; letter-spacing: -.02em; margin: 0; overflow-wrap: anywhere; }
+.greet .date { color: var(--muted); font-size: 15px; margin-top: 4px; }
+.greet .btn.round { width: 44px; height: 44px; padding: 0; border-radius: 50%; flex: none; background: var(--surface); }
+.greet .btn.round svg.i { width: 20px; height: 20px; }
 .askwrap { position: relative; }
 .askwrap .suggest { left: 0; right: 0; top: calc(100% + 4px); }
 .lib-switch { margin-bottom: 14px; }
