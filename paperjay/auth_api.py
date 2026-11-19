@@ -6,7 +6,9 @@
     POST /api/auth/password           change your own password (signs out other devices)
     GET/POST /api/auth/tokens, DELETE /api/auth/tokens/{id}   your API and calendar tokens
                                       (POST {name, permissions: [read, create, update, delete]} limits a key)
-    GET/POST /api/users, PATCH/DELETE /api/users/{id}         (admin)
+    GET/POST /api/users, PATCH/DELETE /api/users/{id}         (admin; PATCH {reset_two_step: true} for a lost phone)
+    GET  /api/auth/2fa, POST /api/auth/2fa/setup {password}, /confirm {code}, /recovery {password},
+         /disable {password}          two-step sign-in (totp.py); login then takes {username, password, code}
 """
 import logging
 import sqlite3
@@ -93,7 +95,10 @@ def status(request: Request):
     con = _con(request)
     try:
         user = _identify(request, con) if auth.has_users(con) else None
-        return {"setup_needed": not auth.has_users(con), "user": user.public() if user else None}
+        out = {"setup_needed": not auth.has_users(con), "user": user.public() if user else None}
+        if user:
+            out["user"]["two_step"] = auth.two_step(con, user.id)["enabled"]
+        return out
     finally:
         con.close()
 
@@ -124,7 +129,10 @@ def login(request: Request, payload: dict):
     con = _con(request)
     try:
         user, token = auth.sign_in(con, str(payload.get("username", "")), str(payload.get("password", "")),
-                                   client_address(request), request.headers.get("user-agent", ""))
+                                   client_address(request), request.headers.get("user-agent", ""),
+                                   code=payload.get("code"))
+    except auth.CodeNeeded as e:   # the password was right: the page asks for the code next
+        return JSONResponse({"detail": str(e), "code_needed": True}, status_code=401)
     except auth.AuthError as e:
         log.info("failed sign-in for %r from %s", str(payload.get("username", ""))[:40], client_address(request))
         raise HTTPException(429 if isinstance(e, auth.TooManyTries) else 401, str(e))
@@ -157,8 +165,7 @@ def change_password(request: Request, payload: dict):
             raise HTTPException(400, "the current password is wrong")
         try:
             auth.update_user(con, user.id, password=str(payload.get("new", "")))
-            _, token = auth.sign_in(con, user.username, str(payload["new"]), client_address(request),
-                                    request.headers.get("user-agent", ""))
+            token = auth.start_session(con, user.id, request.headers.get("user-agent", ""))
         except auth.AuthError as e:
             raise HTTPException(400, str(e))
     finally:
@@ -227,7 +234,8 @@ def edit_user(request: Request, user_id: int, payload: dict):
     con = _con(request)
     try:
         auth.update_user(con, user_id, role=payload.get("role"), disabled=payload.get("disabled"),
-                         display_name=payload.get("display_name"), password=payload.get("password"))
+                         display_name=payload.get("display_name"), password=payload.get("password"),
+                         reset_two_step=bool(payload.get("reset_two_step")))
         return next(u for u in auth.list_users(con) if u["id"] == user_id)
     except auth.AuthError as e:
         raise HTTPException(400, str(e))
@@ -247,3 +255,89 @@ def remove_user(request: Request, user_id: int):
     finally:
         con.close()
     return {"ok": True}
+
+
+# ---- two-step sign-in (totp.py) ----
+
+def _browser_user(request: Request) -> auth.User:
+    user = me(request)
+    if user.via_token:
+        raise HTTPException(403, "turn two-step sign-in on or off from the PaperJay page, not with an access key")
+    return user
+
+
+def _password_ok(con, user: auth.User, payload: dict) -> None:
+    row = con.execute("SELECT password_hash FROM users WHERE id = ?", (user.id,)).fetchone()
+    if not auth.check_password(str(payload.get("password", "")), row["password_hash"]):
+        raise HTTPException(400, "the password is wrong")
+
+
+@router.get("/api/auth/2fa")
+def two_step_status(request: Request):
+    con = _con(request)
+    try:
+        return auth.two_step(con, me(request).id)
+    finally:
+        con.close()
+
+
+@router.post("/api/auth/2fa/setup")
+def two_step_setup(request: Request, payload: dict):
+    """{password} -> the secret, its otpauth:// link and a QR code (SVG) for the authenticator app."""
+    import io
+
+    import segno
+
+    from . import totp
+    user = _browser_user(request)
+    con = _con(request)
+    try:
+        _password_ok(con, user, payload)
+        secret = auth.start_two_step(con, user.id)
+    finally:
+        con.close()
+    link = totp.uri(secret, user.username)
+    buf = io.BytesIO()
+    segno.make(link, error="m").save(buf, kind="svg", scale=5, border=2, dark="#000", light="#fff")
+    return {"secret": secret, "uri": link, "qr": buf.getvalue().decode()}
+
+
+@router.post("/api/auth/2fa/confirm")
+def two_step_confirm(request: Request, payload: dict):
+    """{code} from the app -> on; returns the one-time recovery codes (shown once)."""
+    user = _browser_user(request)
+    con = _con(request)
+    try:
+        codes = auth.confirm_two_step(con, user.id, str(payload.get("code", "")), request.cookies.get(auth.COOKIE))
+    except auth.AuthError as e:
+        raise HTTPException(400, str(e))
+    finally:
+        con.close()
+    log.info("two-step sign-in turned on for %r", user.username)
+    return {"recovery_codes": codes}
+
+
+@router.post("/api/auth/2fa/recovery")
+def two_step_recovery(request: Request, payload: dict):
+    user = _browser_user(request)
+    con = _con(request)
+    try:
+        _password_ok(con, user, payload)
+        return {"recovery_codes": auth.new_recovery_codes(con, user.id)}
+    except auth.AuthError as e:
+        raise HTTPException(400, str(e))
+    finally:
+        con.close()
+
+
+@router.post("/api/auth/2fa/disable")
+def two_step_disable(request: Request, payload: dict):
+    user = _browser_user(request)
+    con = _con(request)
+    try:
+        _password_ok(con, user, payload)
+        auth.stop_two_step(con, user.id)
+    finally:
+        con.close()
+    log.info("two-step sign-in turned off for %r", user.username)
+    return {"enabled": False}

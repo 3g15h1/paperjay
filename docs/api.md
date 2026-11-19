@@ -7,6 +7,10 @@ assistants (MCP)** (or with `POST /api/auth/tokens {"name", "permissions": ["rea
 is limited to those: it gets 403 for anything else, and never reaches settings, people, other keys, exports or
 deleting for good. The same keys work for the [MCP server](mcp.md) at `/mcp`.
 
+Signing in from a script with a name and password: `POST /api/auth/login {username, password}`. With
+two-step sign-in on, the reply is `401 {"code_needed": true}`; send the code again with `code` (an access key
+is simpler for scripts, and is never asked for a code).
+
 ## Adding documents
 
 ```sh

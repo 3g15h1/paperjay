@@ -7,6 +7,7 @@
     paperjay import-paperless URL    import from Paperless-ngx (token from --token-file or PAPERLESS_TOKEN)
     paperjay import-export DIR       import a PaperJay export folder (e.g. to restore a backup)
     paperjay add-admin NAME          create an admin account (asks for the password), e.g. if locked out
+    paperjay reset-2fa NAME          turn off two-step sign-in for an account whose phone is lost
     paperjay backup                  copy the database to DATA_DIR/backups now (the updater does this first)
     paperjay fetch-models            download the built-in search model to DATA_DIR/models (install/update do this)
 """
@@ -44,6 +45,8 @@ def main(argv=None) -> None:
     sub.add_parser("fetch-models", help="download the built-in search model")
     aa = sub.add_parser("add-admin", help="create an admin account")
     aa.add_argument("username")
+    r2 = sub.add_parser("reset-2fa", help="turn off two-step sign-in for an account (lost phone)")
+    r2.add_argument("username")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -79,6 +82,16 @@ def main(argv=None) -> None:
         except embedder.Unavailable as e:
             print(f"warning: {e}. Search by meaning will retry later.", file=sys.stderr)
             sys.exit(1)
+    elif a.command == "reset-2fa":
+        from . import auth
+        from .db import connect, migrate
+        migrate(config.db_path, config.backup_dir)
+        con = connect(config.db_path)
+        row = con.execute("SELECT id FROM users WHERE username = ?", (a.username,)).fetchone()
+        if not row:
+            sys.exit(f"no account called {a.username!r}")
+        auth.stop_two_step(con, row[0])
+        print(f"two-step sign-in is off for {a.username!r}; they can sign in with their password and turn it on again")
     elif a.command in ("export", "import-paperless", "import-export", "add-admin"):
         from . import importer
         from .db import connect, migrate

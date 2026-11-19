@@ -95,11 +95,15 @@ paperjay export DIR [--prune]      plain-folder export (see export.md)
 paperjay import-paperless URL --token-file F [--dry-run]
 paperjay import-export DIR         bring an export back
 paperjay add-admin NAME            create an admin, e.g. when locked out
+paperjay reset-2fa NAME            turn off two-step sign-in for an account whose phone is lost
 ```
 
 ## Reaching it from outside
 
-Keep PaperJay on your home network. For access from anywhere, use a VPN such as Tailscale or WireGuard,
+Keep PaperJay on your home network. Turn on **two-step sign-in** for every account first (Settings → Your
+account): signing in then also needs a code from an authenticator app, and each person gets ten one-time
+recovery codes for a lost phone. An admin can turn it off for someone under Settings → People; for a
+locked-out admin, run `paperjay reset-2fa NAME` on the server. Access keys for apps aren't affected. For access from anywhere, use a VPN such as Tailscale or WireGuard,
 or put it behind a reverse proxy that adds HTTPS (Caddy, Traefik, nginx). Tell PaperJay which address the
 proxy connects from, so it trusts the proxy's `X-Forwarded-*` headers (and marks sign-in cookies
 HTTPS-only): `FORWARDED_ALLOW_IPS=192.168.1.10` (default: only a proxy on the same machine).

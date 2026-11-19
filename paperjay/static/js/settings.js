@@ -124,7 +124,7 @@ export async function show(view, params) {
   const theme = localStorage.getItem("pj-theme") || "system";
   const HTML = {
     account: () => `<div class="section"><div class="h"><h2>Your account</h2><span class="aside">${esc(me?.display_name || "")} · ${esc(ROLE_NAMES[me?.role] || "")}</span></div>
-    <p class="sec-desc">Your password, and adding your reminders to your phone's calendar.</p>
+    <p class="sec-desc">Your password, two-step sign-in, and adding your reminders to your phone's calendar.</p>
     <div class="card pad" style="display:grid;gap:16px">
       <form id="pwForm" style="display:grid;gap:8px">
         <b>Change your password</b>
@@ -133,6 +133,10 @@ export async function show(view, params) {
           <label class="field" style="flex:1;min-width:160px">New password<input class="input" type="password" name="new" autocomplete="new-password" minlength="8"><span class="help">At least 8 characters.</span></label></div>
         <div class="help">You'll stay signed in here, but need to sign in again on your other devices.</div>
         <div><button class="btn">Change password</button></div></form>
+      <div id="twoStep" style="display:grid;gap:8px"><b>Two-step sign-in</b>
+        <div class="help">After your password, PaperJay also asks for a code from an authenticator app on your phone (Google or
+          Microsoft Authenticator, Aegis, 1Password, Bitwarden, iPhone Passwords…), so a guessed or leaked password alone can't open your
+          documents.</div><div id="tsOut"></div></div>
       <div id="calendar" style="display:grid;gap:8px"><b>Reminders in your phone's calendar</b>
         <div class="help">Bills that are due and things that expire (insurance, passports, warranties) show up as events in your phone's calendar,
           with reminders. The link only shows those dates; nobody can open your documents with it.</div>
@@ -523,6 +527,52 @@ export async function show(view, params) {
       els.pwForm.reset(); toast("Password changed. You're signed out on your other devices.");
     };
     els.outBtn.onclick = signOut;
+    // two-step sign-in (totp.py)
+    const codesBox = (codes) => modal(`<h1 style="font-size:17px">Your recovery codes</h1>
+      <div class="muted small">If you lose your phone, sign in with one of these instead of a code. Each works once. Keep them somewhere
+        safe (print them or save them in your password manager): this is the only time PaperJay shows them.</div>
+      <pre class="mono" style="margin:0;padding:12px;background:var(--bg);border-radius:8px;columns:2;font-size:15px">${codes.map(esc).join("\n")}</pre>
+      <div class="acts"><button class="btn" data-copy>Copy</button><button class="btn primary" data-close>I've saved them</button></div>`, { onMount: (box) => {
+        box.querySelector("[data-copy]").onclick = () => navigator.clipboard.writeText(codes.join("\n")).then(() => toast("Copied"));
+        box.querySelector("[data-close]").onclick = () => { closeModal(); drawTwoStep(); };
+      } });
+    async function drawTwoStep() {
+      const st = await api("/api/auth/2fa");
+      els.tsOut.innerHTML = st.enabled
+        ? `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="chip good">On</span>
+            <span class="small ${st.recovery_left <= 2 ? "" : "faint"}" style="${st.recovery_left <= 2 ? "color:var(--warn)" : ""}">${plural(st.recovery_left, "recovery code")} left</span>
+            <span class="spacer" style="flex:1"></span><button class="btn sm" id="tsNew">New recovery codes</button><button class="btn sm ghost danger" id="tsOff">Turn off</button></div>`
+        : `<div><button class="btn sm" id="tsOn">Turn on two-step sign-in</button></div>`;
+      const on = $("#tsOn", view), off = $("#tsOff", view), fresh = $("#tsNew", view);
+      if (on) on.onclick = async () => {
+        const password = await promptBox("Your password", { label: "To turn on two-step sign-in, type your password.", ok: "Next", type: "password" });
+        if (!password) return;
+        const r = await api("/api/auth/2fa/setup", { method: "POST", body: { password } });
+        modal(`<h1 style="font-size:17px">Scan this with your authenticator app</h1>
+          <div style="display:grid;place-items:center;background:#fff;border-radius:8px;padding:8px">${r.qr}</div>
+          <div class="muted small">Can't scan? Add an account by hand with this key (time-based):</div>
+          <input class="input mono" readonly value="${esc(r.secret.replace(/(.{4})/g, "$1 ").trim())}" onclick="this.select()">
+          <label class="field">The 6-digit code the app shows now<input class="input" id="tsCode" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456"></label>
+          <div class="acts"><button class="btn ghost" data-cancel>Cancel</button><button class="btn primary" data-ok>Turn on</button></div>`, { onMount: (box) => {
+            box.querySelector("[data-cancel]").onclick = closeModal;
+            box.querySelector("[data-ok]").onclick = async () => {
+              const res = await api("/api/auth/2fa/confirm", { method: "POST", body: { code: box.querySelector("#tsCode").value } }).catch(() => null);
+              if (res) { toast("Two-step sign-in is on"); codesBox(res.recovery_codes); }
+            };
+          } });
+      };
+      if (off) off.onclick = async () => {
+        const password = await promptBox("Turn off two-step sign-in?", { label: "Type your password. Signing in then needs only the password.", ok: "Turn off", type: "password" });
+        if (!password) return;
+        await api("/api/auth/2fa/disable", { method: "POST", body: { password } }); toast("Two-step sign-in is off"); drawTwoStep();
+      };
+      if (fresh) fresh.onclick = async () => {
+        const password = await promptBox("New recovery codes", { label: "Type your password. Your old recovery codes stop working.", ok: "Make new codes", type: "password" });
+        if (!password) return;
+        const res = await api("/api/auth/2fa/recovery", { method: "POST", body: { password } }); codesBox(res.recovery_codes);
+      };
+    }
+    drawTwoStep();
     const showSecret = (title, value, note) => modal(`<h1 style="font-size:17px">${esc(title)}</h1>
       <input class="input" readonly value="${esc(value)}" onclick="this.select()"><div class="muted small">${esc(note)}</div>
       <div class="acts"><button class="btn" data-copy>Copy</button><button class="btn primary" data-close>Done</button></div>`, { onMount: (box) => {
@@ -601,16 +651,18 @@ export async function show(view, params) {
       if (me?.role !== "admin") return;
       const ps = await api("/api/users");
       els.people.innerHTML = ps.map((p) => `<div class="item"><span class="main"><div class="t">${esc(p.display_name)} <span class="faint small">${esc(p.username)}</span></div>
-        <div class="sub">${p.disabled ? "Paused: can't sign in" : "Added " + ago(p.created_at)}</div></span>
+        <div class="sub">${p.disabled ? "Paused: can't sign in" : "Added " + ago(p.created_at)}${p.two_step ? " · two-step sign-in on" : ""}</div></span>
         <select class="input" data-role="${p.id}" style="width:auto;height:30px">${["admin", "member", "readonly"].map((r) => `<option value="${r}" ${r === p.role ? "selected" : ""}>${ROLE_NAMES[r]}</option>`).join("")}</select>
         <button class="btn ghost sm" data-pw="${p.id}">Set password</button>
+        ${p.two_step && p.id !== me.id ? `<button class="btn ghost sm" data-ts="${p.id}" title="For a lost phone: they sign in with their password and can turn it on again">Turn off two-step</button>` : ""}
         ${p.id === me.id ? "" : `<button class="btn ghost sm" data-off="${p.id}" data-v="${p.disabled ? 0 : 1}">${p.disabled ? "Let them in" : "Pause"}</button>
         <button class="btn ghost sm icon danger" data-del="${p.id}" title="Remove">${icon("trash")}</button>`}</div>`).join("");
     }
     els.people.onchange = async (e) => { const s = e.target.closest("[data-role]"); if (s) { await api(`/api/users/${s.dataset.role}`, { method: "PATCH", body: { role: s.value } }).catch(() => {}); drawPeople(); } };
     els.people.onclick = async (e) => {
-      const pw = e.target.closest("[data-pw]"), off = e.target.closest("[data-off]"), del = e.target.closest("[data-del]");
-      if (pw) { const p = await promptBox("Set a new password", { label: "At least 8 characters", ok: "Set" }); if (p) { await api(`/api/users/${pw.dataset.pw}`, { method: "PATCH", body: { password: p } }); toast("Password set. They need to sign in again with it."); } }
+      const pw = e.target.closest("[data-pw]"), off = e.target.closest("[data-off]"), del = e.target.closest("[data-del]"), ts = e.target.closest("[data-ts]");
+      if (ts && await confirmBox("Turn off their two-step sign-in?", "For a lost phone: they can then sign in with just their password, and turn it on again with their new phone.", { ok: "Turn off" })) { await api(`/api/users/${ts.dataset.ts}`, { method: "PATCH", body: { reset_two_step: true } }); toast("Two-step sign-in is off for them"); drawPeople(); }
+      if (pw) { const p = await promptBox("Set a new password", { label: "At least 8 characters", ok: "Set", type: "password" }); if (p) { await api(`/api/users/${pw.dataset.pw}`, { method: "PATCH", body: { password: p } }); toast("Password set. They need to sign in again with it."); } }
       if (off) { await api(`/api/users/${off.dataset.off}`, { method: "PATCH", body: { disabled: off.dataset.v === "1" } }); drawPeople(); }
       if (del && await confirmBox("Remove this person?", "They can't sign in any more. Documents and notes they added stay.", { ok: "Remove", danger: true })) { await api(`/api/users/${del.dataset.del}`, { method: "DELETE" }); drawPeople(); }
     };

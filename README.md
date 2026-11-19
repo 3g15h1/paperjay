@@ -117,7 +117,8 @@ Everything stays on your server. The AI, if you use one, is a server you choose;
 document text leaves your network. `paperjay export <folder>` writes all originals, searchable PDFs and a
 `manifest.json` of the filing into ordinary folders, and only copies what changed on later runs.
 
-Keep PaperJay on your home network. To reach it from outside, use a VPN (e.g. Tailscale or WireGuard) or a
+Keep PaperJay on your home network, and turn on two-step sign-in (an authenticator app code after the
+password) for each account. To reach it from outside, use a VPN (e.g. Tailscale or WireGuard) or a
 reverse proxy with HTTPS. Security reports: [SECURITY.md](SECURITY.md).
 
 ## Development

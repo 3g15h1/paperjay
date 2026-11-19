@@ -10,10 +10,13 @@ Passwords are hashed with scrypt (standard library). A browser signs in once and
 `Authorization: Token …` (as Paperless-ngx does) or `Bearer …` header. Only hashes of sessions and tokens
 are stored. A token can be limited to some of read, create, update and delete (keys for AI assistants, 0.6):
 those only narrow what the account's role allows. Too many wrong passwords for one name and address in a row make sign-in wait.
+Two-step sign-in (0.8.0, totp.py): with it on, signing in in a browser also needs a code from an authenticator
+app or a one-time recovery code; API tokens are unaffected (they're secrets of their own).
 """
 import base64
 import hashlib
 import hmac
+import json
 import re
 import secrets
 import sqlite3
@@ -37,6 +40,10 @@ class AuthError(Exception):
 
 class TooManyTries(AuthError):
     pass
+
+
+class CodeNeeded(AuthError):
+    """The password was right; two-step sign-in is on, so a code from the authenticator app is needed too."""
 
 
 @dataclass(frozen=True)
@@ -123,7 +130,7 @@ def get_user(con: sqlite3.Connection, user_id: int) -> User | None:
 def list_users(con: sqlite3.Connection) -> list[dict]:
     return [{"id": r["id"], "username": r["username"], "display_name": r["display_name"] or r["username"],
              "role": r["role"], "disabled": bool(r["disabled"]), "created_at": r["created_at"],
-             "can_sign_in": r["password_hash"] is not None}
+             "can_sign_in": r["password_hash"] is not None, "two_step": bool(r["totp_secret"])}
             for r in con.execute("SELECT * FROM users ORDER BY username")]
 
 
@@ -133,7 +140,7 @@ def _admins(con) -> int:
 
 
 def update_user(con: sqlite3.Connection, user_id: int, *, role: str | None = None, disabled: bool | None = None,
-                display_name: str | None = None, password: str | None = None) -> None:
+                display_name: str | None = None, password: str | None = None, reset_two_step: bool = False) -> None:
     row = con.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row:
         raise AuthError("no such person")
@@ -152,6 +159,8 @@ def update_user(con: sqlite3.Connection, user_id: int, *, role: str | None = Non
             _check_new_password(password, row["username"])
             con.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(password), user_id))
             con.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))  # sign out everywhere
+        if reset_two_step:   # a lost phone: an admin turns it off, and the person sets it up again
+            stop_two_step(con, user_id)
         if _admins(con) == 0:
             raise AuthError("there must always be at least one admin who can sign in")
 
@@ -202,27 +211,112 @@ def _hash(token: str) -> str:
 
 
 def sign_in(con: sqlite3.Connection, username: str, password: str, address: str = "",
-            user_agent: str = "") -> tuple[User, str]:
-    """Returns the user and a new session token, or raises AuthError (deliberately vague)."""
+            user_agent: str = "", code: str | None = None) -> tuple[User, str]:
+    """Returns the user and a new session token, or raises AuthError (deliberately vague). With two-step
+    sign-in on, the code from the authenticator app (or a recovery code) is needed too: without one,
+    CodeNeeded; a wrong one counts as a wrong password for the throttle."""
     key = (str(username).strip().lower(), address)
     wait = THROTTLE.wait_for(key)
     if wait > 0:
-        raise TooManyTries(f"too many wrong passwords; try again in {int(wait) + 1} s")
+        raise TooManyTries(f"too many wrong tries; try again in {int(wait) + 1} s")
     row = con.execute("SELECT * FROM users WHERE username = ? AND NOT disabled", (key[0],)).fetchone()
     if not row or not check_password(password, row["password_hash"]):
         if not row:
             check_password(password, hash_password("x" * 12))  # same time either way: don't reveal names
         THROTTLE.failed(key)
         raise AuthError("wrong name or password")
+    if row["totp_secret"]:
+        if not str(code or "").strip():
+            raise CodeNeeded("enter the code from your authenticator app")
+        if not _second_step(con, row, str(code)):
+            THROTTLE.failed(key)
+            raise AuthError("that code isn't right (or was already used)")
     THROTTLE.succeeded(key)
+    return _user(row), start_session(con, row["id"], user_agent)
+
+
+def start_session(con: sqlite3.Connection, user_id: int, user_agent: str = "") -> str:
     token = secrets.token_urlsafe(32)
     now = time.time()
     with transaction(con):
         con.execute("INSERT INTO sessions(token_hash, user_id, created_at, last_seen, expires_at, user_agent) "
-                    "VALUES (?, ?, ?, ?, ?, ?)", (_hash(token), row["id"], now, now, now + SESSION_DAYS * 86400,
+                    "VALUES (?, ?, ?, ?, ?, ?)", (_hash(token), user_id, now, now, now + SESSION_DAYS * 86400,
                                                   user_agent[:200]))
         con.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
-    return _user(row), token
+    return token
+
+
+# ---- two-step sign-in (totp.py) ----
+
+def _second_step(con: sqlite3.Connection, row, code: str) -> bool:
+    """A code from the app (each used once), or one of the recovery codes (each used once)."""
+    from . import totp
+    with transaction(con):
+        fresh = con.execute("SELECT totp_secret, totp_last_step, recovery_codes FROM users WHERE id = ?",
+                            (row["id"],)).fetchone()
+        step = totp.verify(fresh["totp_secret"], code, fresh["totp_last_step"])
+        if step is not None:
+            con.execute("UPDATE users SET totp_last_step = ? WHERE id = ?", (step, row["id"]))
+            return True
+        hashes = json.loads(fresh["recovery_codes"] or "[]")
+        h = totp.hash_code(code)
+        if len("".join(c for c in code if c.isalnum())) == 8 and h in hashes:
+            hashes.remove(h)
+            con.execute("UPDATE users SET recovery_codes = ? WHERE id = ?", (json.dumps(hashes), row["id"]))
+            return True
+    return False
+
+
+def two_step(con: sqlite3.Connection, user_id: int) -> dict:
+    r = con.execute("SELECT totp_secret, recovery_codes FROM users WHERE id = ?", (user_id,)).fetchone()
+    return {"enabled": bool(r and r["totp_secret"]),
+            "recovery_left": len(json.loads(r["recovery_codes"] or "[]")) if r and r["totp_secret"] else 0}
+
+
+def start_two_step(con: sqlite3.Connection, user_id: int) -> str:
+    """A new secret, kept aside until a code from it is confirmed (so a half-done setup never locks anyone out)."""
+    from . import totp
+    secret = totp.new_secret()
+    with transaction(con):
+        con.execute("UPDATE users SET totp_pending = ? WHERE id = ?", (secret, user_id))
+    return secret
+
+
+def confirm_two_step(con: sqlite3.Connection, user_id: int, code: str, keep_session: str | None = None) -> list[str]:
+    """Turn it on with a code from the new secret. Returns the recovery codes (shown once). Signs out the
+    account's other sessions."""
+    from . import totp
+    r = con.execute("SELECT totp_pending FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not r or not r["totp_pending"]:
+        raise AuthError("start setting it up first")
+    step = totp.verify(r["totp_pending"], code)
+    if step is None:
+        raise AuthError("that code isn't right: check the time on your phone, and try the newest code")
+    codes = totp.new_recovery_codes()
+    with transaction(con):
+        con.execute("UPDATE users SET totp_secret = totp_pending, totp_pending = NULL, totp_last_step = ?, "
+                    "recovery_codes = ? WHERE id = ?",
+                    (step, json.dumps([totp.hash_code(c) for c in codes]), user_id))
+        con.execute("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?",
+                    (user_id, _hash(keep_session or "")))
+    return codes
+
+
+def new_recovery_codes(con: sqlite3.Connection, user_id: int) -> list[str]:
+    from . import totp
+    if not two_step(con, user_id)["enabled"]:
+        raise AuthError("two-step sign-in is off")
+    codes = totp.new_recovery_codes()
+    with transaction(con):
+        con.execute("UPDATE users SET recovery_codes = ? WHERE id = ?",
+                    (json.dumps([totp.hash_code(c) for c in codes]), user_id))
+    return codes
+
+
+def stop_two_step(con: sqlite3.Connection, user_id: int) -> None:
+    with transaction(con):
+        con.execute("UPDATE users SET totp_secret = NULL, totp_pending = NULL, totp_last_step = 0, "
+                    "recovery_codes = '[]' WHERE id = ?", (user_id,))
 
 
 def session_user(con: sqlite3.Connection, token: str) -> User | None:
@@ -320,7 +414,7 @@ OPEN_PREFIXES = ("/static/",)
 # Read-only people may also do these (they don't change documents)
 READONLY_WRITES = {("POST", "/api/ask"), ("POST", "/mcp"), ("DELETE", "/mcp"), ("POST", "/api/feedback"), ("POST", "/api/auth/logout"),
                    ("POST", "/api/auth/password"), ("POST", "/api/auth/tokens")}
-READONLY_WRITE_PREFIXES = ("/api/auth/tokens/",)
+READONLY_WRITE_PREFIXES = ("/api/auth/tokens/", "/api/auth/2fa/")
 # Only admins: people, settings, deleting for good
 ADMIN_ONLY = ("/api/users", "/api/settings", "/api/trash/empty", "/api/import", "/api/export", "/api/update", "/api/mail")
 

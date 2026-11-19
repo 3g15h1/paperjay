@@ -141,14 +141,14 @@ export function confirmBox(title, text, { ok = "OK", danger = false } = {}) {
     });
   });
 }
-export function promptBox(title, { value = "", label = "", ok = "Save", placeholder = "" } = {}) {
+export function promptBox(title, { value = "", label = "", ok = "Save", placeholder = "", type = "text" } = {}) {
   return new Promise((resolve) => {
     const box = modal(`<h1 style="font-size:17px">${esc(title)}</h1><form class="grid" style="display:grid;gap:14px">
-      <label class="field">${esc(label)}<input class="input" name="v" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off"></label>
+      <label class="field">${esc(label)}<input class="input" name="v" type="${type === "password" ? "password" : "text"}" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="${type === "password" ? "current-password" : "off"}"></label>
       <div class="acts"><button type="button" class="btn" data-a="no">Cancel</button><button class="btn primary">${esc(ok)}</button></div></form>`);
     const input = box.querySelector("input"); input.select();
     box.querySelector("[data-a=no]").onclick = () => { closeModal(); resolve(null); };
-    box.querySelector("form").onsubmit = (e) => { e.preventDefault(); const v = input.value.trim(); closeModal(); resolve(v || null); };
+    box.querySelector("form").onsubmit = (e) => { e.preventDefault(); const v = type === "password" ? input.value : input.value.trim(); closeModal(); resolve(v || null); };
   });
 }
 

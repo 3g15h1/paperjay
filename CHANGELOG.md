@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.0
+
+- **Two-step sign-in.** Settings → Your account → **Turn on two-step sign-in**: scan the code with an
+  authenticator app on your phone (Google or Microsoft Authenticator, Aegis, 1Password, Bitwarden, iPhone
+  Passwords…) and type the code it shows. Signing in then asks for the code after your password, so a
+  guessed or leaked password alone can't open your documents. Every account can turn it on, read-only ones
+  too, and turning it on signs out your other devices.
+- **Recovery codes for a lost phone.** You get ten one-time codes to print or keep in a password manager;
+  any of them works instead of the app's code, once. **New recovery codes** makes a fresh set.
+- **Locked out?** An admin can turn it off for someone under Settings → People ("Turn off two-step"), and
+  `paperjay reset-2fa NAME` on the server does it for a locked-out admin.
+- Wrong codes count like wrong passwords, so guessing makes sign-in wait. Access keys for apps and AI
+  assistants keep working as before.
+- Setting someone's password under Settings → People no longer shows it on screen while you type.
+- Changes the database (new columns for sign-in codes); PaperJay backs it up first, as always.
+
 ## 0.7.9
 
 - **Scan a whole stack at once.** Print a separator sheet (Settings → Paper shelf, or Print labels in the
