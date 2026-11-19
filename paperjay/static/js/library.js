@@ -1,5 +1,6 @@
 // Library: search and filter every document, saved searches, grid or list, select several and act on them.
 import { $, $$, api, qs, esc, icon, labels, tagChip, docCard, go, toast, promptBox, confirmBox, plural, refreshCounts, combo, ensureLabel, modal, closeModal, libSwitch } from "./core.js";
+import { swipeWrap, swipeToDelete } from "./swipe.js";
 
 export const nav = "library";
 const PAGE = 60;
@@ -126,7 +127,7 @@ export async function show(view, { query }) {
     if (!results.length) {
       els.list.innerHTML = `<div class="card empty">${f.q || els.reset.hidden === false ? "No documents match. Try fewer words or clear the filters." : `Nothing here yet. <a href="/upload" style="color:var(--accent)">Add your first document</a>.`}</div>`;
     } else {
-      els.list.innerHTML = `<div class="docs ${layout === "rows" ? "rows" : ""} ${selecting ? "selecting" : ""}">${results.map((d) => docCard(d, { picked: picked.has(d.id) })).join("")}</div>`;
+      els.list.innerHTML = `<div class="docs ${layout === "rows" ? "rows" : ""} ${selecting ? "selecting" : ""}">${results.map((d) => swipeWrap(d.id, docCard(d, { picked: picked.has(d.id) }))).join("")}</div>`;
     }
     els.more.hidden = results.length >= total;
     els.bulk.hidden = !selecting;
@@ -140,6 +141,22 @@ export async function show(view, { query }) {
     picked.has(id) ? picked.delete(id) : picked.add(id);
     a.classList.toggle("picked", picked.has(id));
     els.bulkN.textContent = picked.size ? `${picked.size} selected` : "Pick documents";
+  });
+  // swipe a document left, then tap Delete: it goes to the trash (with Undo), like "Move to trash"
+  const swiper = swipeToDelete(els.list, {
+    enabled: () => !selecting && !document.body.classList.contains("readonly"),
+    onDelete: async (id, row) => {
+      try { await api("/api/documents/bulk", { method: "POST", body: { ids: [id], action: "trash" } }); }
+      catch { swiper.close(); return; }     // api() has already said what went wrong
+      row.classList.add("gone");
+      setTimeout(() => {
+        results = results.filter((d) => d.id !== id); total = Math.max(0, total - 1);
+        els.count.textContent = plural(total, "document"); draw();
+      }, 200);
+      refreshCounts();
+      toast("Moved to the trash", { label: "Undo", run: async () => {
+        await api("/api/documents/bulk", { method: "POST", body: { ids: [id], action: "restore" } }); load(); refreshCounts(); } });
+    },
   });
   let timer;
   els.q.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => { f.q = els.q.value.trim(); if (!f.q && f.sort === "relevance") f.sort = ""; load(); }, 250); });
@@ -233,4 +250,5 @@ export async function show(view, { query }) {
 
   renderTagChips(); loadViews(); load();
   if (matchMedia("(hover: hover)").matches && !f.q) els.q.focus();
+  return () => swiper.detach();
 }

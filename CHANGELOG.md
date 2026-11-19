@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.5
+
+- **Swipe left to delete.** On a phone or tablet, swipe a document to the left in the Library to show a red
+  trash-can button; tap it to move the document to the Trash. **Undo** brings it straight back, and the
+  Trash keeps it for 30 days. Swipe back to the right, or tap anywhere else, to close the button
+  without deleting. Swiping is off while you're selecting documents and for read-only accounts.
+
 ## 0.5.4
 
 - **One box to find or ask.** As you type in the Ask box, it suggests matching companies, people, topics,

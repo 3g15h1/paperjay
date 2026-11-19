@@ -181,7 +181,16 @@ a.item:hover, button.item:hover { background: var(--hover); }
 .doc .state { position: absolute; top: 8px; right: 8px; }
 .docs.rows { grid-template-columns: minmax(0, 1fr); gap: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .docs.rows .doc { flex-direction: row; align-items: center; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
-.docs.rows .doc:first-child { border-top: 0; }
+.docs.rows > :first-child, .docs.rows > :first-child .doc { border-top: 0; }
+/* swipe left to delete (swipe.js): the card slides over a Delete button */
+.swipe { position: relative; display: flex; min-width: 0; border-radius: var(--radius); overflow: hidden; transition: opacity .2s, transform .2s; }
+.swipe > .doc { flex: 1; touch-action: pan-y; transition: transform .2s ease; -webkit-user-drag: none; }
+.swipe-del { position: absolute; top: 0; right: 0; bottom: 0; width: 72px; display: grid; place-items: center; border: 0; background: var(--bad); color: #fff;
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; visibility: hidden; }
+.swipe-del svg.i { width: 24px; height: 24px; }
+.swipe.open .swipe-del { visibility: visible; }   /* also while dragging */
+.swipe.gone { opacity: 0; transform: translateX(-30%); }
+.docs.rows .swipe { border-radius: 0; }
 .docs.rows .doc .thumb { width: 44px; height: 56px; aspect-ratio: auto; border: 1px solid var(--line); border-radius: 6px; margin: 8px 0 8px 12px; flex: none; }
 .docs.rows .doc .body { flex: 1; padding: 8px 12px; }
 .docs.rows .doc .snippet { -webkit-line-clamp: 1; }
