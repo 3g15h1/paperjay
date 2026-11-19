@@ -42,7 +42,7 @@ function keepField(k) {
     <span class="help">${k.own ? "Your own choice for this document." : `Keep rule: ${esc(k.why)}.`} <a href="/settings/keeping">Keep rules</a></span></label>`;
 }
 
-export async function show(view, { id }) {
+export async function show(view, { id, query }) {
   let doc;
   try { doc = await api(`/api/documents/${id}`, { quiet: true }); }
   catch { view.innerHTML = `<div class="page narrow"><div class="card empty">This document doesn't exist (any more). <a href="/library">Back to the library</a></div></div>`; return; }
@@ -55,13 +55,50 @@ export async function show(view, { id }) {
       <button class="btn sm icon" id="moreBtn" title="More">${icon("more")}</button></div>
     <div class="docpage">
       <div><input class="title-edit" id="title" value="${esc(doc.title)}" aria-label="Title"><div class="faint small" id="sub" style="margin:2px 0 14px"></div>
-        <div id="banner"></div><div class="viewer" id="viewer"></div></div>
+        <div id="walk"></div><div id="banner"></div><div class="viewer" id="viewer"></div></div>
       <div class="panel">
         <div class="seg" id="tabs"><button data-t="details">Details</button><button data-t="text">Text</button><button data-t="notes">Notes</button><button data-t="history">History</button></div>
         <div class="card" id="pane"></div>
       </div>
     </div></div>`;
   const els = Object.fromEntries($$("[id]", view).map((e) => [e.id, e]));
+
+  // ---------- walking through Needs review (opened from the Review page) ----------
+  async function drawWalk() {
+    if (query?.get("from") !== "review" || doc.deleted_at) { els.walk.innerHTML = ""; return; }
+    const list = (await api("/api/documents?needs_review=true&sort=added_desc&limit=500", { quiet: true }).catch(() => ({ results: [] }))).results.map((d) => d.id);
+    const at = list.indexOf(doc.id);
+    const rest = list.filter((x) => x !== doc.id);
+    const next = at >= 0 ? (list[at + 1] ?? rest[0]) : rest[0];
+    els.walk.innerHTML = `<div class="notice info walkbar"><div class="t">${at >= 0 ? `Checking ${at + 1} of ${list.length}` : "Checked"}</div>
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        ${at >= 0 ? `<button class="btn sm primary" data-walk="ok">${icon("check")} Looks right &amp; next</button>` : ""}
+        <button class="btn sm danger" data-walk="trash">${icon("trash")} Trash &amp; next</button>
+        <button class="btn sm ghost" data-walk="skip">${next ? "Skip" : "Back to Review"}</button></div>
+      <div class="faint small">Fix anything on the right first; your changes are saved as you go. Keys: A looks right, S skip.</div></div>`;
+    const goNext = () => go(next ? `/documents/${next}?from=review` : "/review", { replace: true });
+    els.walk.onclick = async (e) => {
+      const b = e.target.closest("[data-walk]"); if (!b) return;
+      b.disabled = true;
+      if (b.dataset.walk === "ok") await api(`/api/documents/${doc.id}/reviewed`, { method: "POST" });
+      if (b.dataset.walk === "trash") {
+        const gone = doc.id;
+        await api(`/api/documents/${gone}/trash`, { method: "POST" });
+        toast("Moved to the trash", { label: "Undo", run: async () => { await api(`/api/documents/${gone}/restore`, { method: "POST" }); refreshCounts(); } });
+      }
+      refreshCounts();
+      if (!next && b.dataset.walk !== "skip") toast("That was the last one to check");
+      goNext();
+    };
+    walkKeys = (e) => {
+      if (e.target.closest("input, textarea, select, [contenteditable]") || e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const b = els.walk.querySelector(`[data-walk="${k === "a" ? "ok" : k === "s" ? "skip" : ""}"]`);
+      if (b) { e.preventDefault(); b.click(); }
+    };
+    addEventListener("keydown", walkKeys);
+  }
+  let walkKeys = null;
 
   // ---------- header, banners and pages ----------
   function drawTop() {
@@ -245,7 +282,7 @@ export async function show(view, { id }) {
     if (busy && !poll) poll = setInterval(reload, 2500);
     if (!busy && poll) { clearInterval(poll); poll = null; refreshCounts(); }
   }
-  drawTop(); drawPages(); drawTab();
+  drawTop(); drawPages(); drawTab(); drawWalk();
   if (doc.status === "pending" || doc.status === "processing") poll = setInterval(reload, 2500);
-  return () => clearInterval(poll);
+  return () => { clearInterval(poll); if (walkKeys) removeEventListener("keydown", walkKeys); };
 }

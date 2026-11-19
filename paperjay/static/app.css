@@ -484,3 +484,4 @@ svg.i.chev { width: 16px; height: 16px; color: var(--faint); stroke-width: 2.2; 
 .pe-bar .btn.icon { width: 26px; height: 26px; padding: 0; }
 .pe-split { align-self: center; border: 1px dashed var(--line); background: none; color: var(--faint); border-radius: 8px; padding: 6px 4px; cursor: pointer; font-size: 12px; max-width: 70px; }
 .pe-split.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.walkbar { display: grid; margin: 0 0 12px; }

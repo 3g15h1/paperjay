@@ -57,3 +57,15 @@ def test_start_page_greets_by_first_name_with_the_date():
     assert 'weekday: "long", day: "numeric", month: "long"' in home
     assert "els.greet.hidden = true" in home
     assert 'class="btn icon round mobile-only" href="/settings"' in home
+
+
+def test_needs_review_walks_through_the_documents():
+    """0.7.5: a document opened from Needs review has Looks right & next, Trash & next and Skip, which
+    go on to the next document still to check (and back to Review after the last)."""
+    review = (STATIC / "js" / "review.js").read_text(encoding="utf-8")
+    doc = (STATIC / "js" / "document.js").read_text(encoding="utf-8")
+    assert '?from=review' in review
+    assert 'query?.get("from") !== "review"' in doc
+    for walk in ('data-walk="ok"', 'data-walk="trash"', 'data-walk="skip"'):
+        assert walk in doc
+    assert "removeEventListener(\"keydown\", walkKeys)" in doc     # the keys stop when you leave the page

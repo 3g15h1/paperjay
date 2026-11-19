@@ -132,8 +132,11 @@ _DEFS = [
   r"server|tip|dine", "restaurant food dining receipt meal"),
  ("school", "other", r"school|university|college|tuition",
   r"student|enrol(?:l)?ment|semester", "school tuition student education"),
- ("legal", "other", r"attorney|law (?:firm|office)|legal|court|notary",
-  r"counsel|esquire|\bp\.?c\.?\b", "lawyer attorney legal law firm"),
+ # not a bare "court" (12 Maple Court) or "legal" (the small print on every bill): 0.7.5
+ ("legal", "other", r"attorney|law (?:firm|office)|notary|\blegal (?:notice|services|aid|fees?|counsel|matter)|"
+  r"\b(?:district|superior|county|circuit|family|municipal|supreme|probate|traffic|small claims) court\b|"
+  r"\bcourt (?:order|case|date|hearing|fees?|summons|appearance)\b",
+  r"counsel|esquire|\bp\.?c\.?\b|\blegal\b|\bplaintiff\b|\bdefendant\b", "lawyer attorney legal law firm"),
  ("government", "other", r"department of|secretary of state|county clerk|municipal|social security (?:administration)?",
   r"government|official notice", "government official notice county state"),
  ("pet", "other", r"veterinar|pet (?:clinic|care|insurance)|\bvet\b",

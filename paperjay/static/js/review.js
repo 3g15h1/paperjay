@@ -18,7 +18,7 @@ const LISTS = {
 };
 const FIELD_NAMES = { vendor: "Company", kind: "Type", doc_date: "Date" };
 
-const thumb = (d) => `<a href="/documents/${d.id}" style="flex:none"><img src="/api/documents/${d.id}/thumb" alt="" style="width:44px;height:58px;object-fit:cover;object-position:top;border-radius:5px;border:1px solid var(--line)" onerror="this.style.visibility='hidden'"></a>`;
+const thumb = (d, q = "") => `<a href="/documents/${d.id}${q}" style="flex:none"><img src="/api/documents/${d.id}/thumb" alt="" style="width:44px;height:58px;object-fit:cover;object-position:top;border-radius:5px;border:1px solid var(--line)" onerror="this.style.visibility='hidden'"></a>`;
 const filed = (d) => esc([d.correspondent, d.document_type, fmtDate(d.doc_date)].filter(Boolean).join(" · ") || `Added ${fmtDate(d.added_at)}`);
 const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : "Date";
 const dateChips = (d) => (d.dates || []).map((x) => `<button type="button" class="chip ${x.picked ? "on" : ""}" data-date="${esc(x.date)}">${x.picked ? "★ " : ""}${esc(cap(x.label))} ${esc(fmtDate(x.date))}</button>`).join("");
@@ -61,8 +61,9 @@ export async function show(view, params) {
     els.failed.innerHTML = fail.results.map((d) => `<div class="item"><a class="main" href="/documents/${d.id}"><div class="t">${esc(d.title)}</div><div class="sub">Open it to see why</div></a>
       <button class="btn sm" data-retry="${d.id}">${icon("redo")} Try again</button></div>`).join("");
     const docs = await Promise.all(review.map((d) => api(`/api/documents/${d.id}`, { quiet: true }).catch(() => null)));
-    els.review.innerHTML = docs.filter(Boolean).map((d) => `<div class="item" style="align-items:flex-start">${thumb(d)}
-      <a class="main" href="/documents/${d.id}"><div class="t">${esc(d.title)}</div>
+    // opened from here, a document page walks through the list: "Looks right & next" (document.js)
+    els.review.innerHTML = docs.filter(Boolean).map((d) => `<div class="item" style="align-items:flex-start">${thumb(d, "?from=review")}
+      <a class="main" href="/documents/${d.id}?from=review"><div class="t">${esc(d.title)}</div>
         <div class="sub">${esc([d.correspondent, d.document_type, fmtDate(d.doc_date)].filter(Boolean).join(" · "))}</div>
         <div class="small" style="color:var(--warn);margin-top:4px">${(d.suggestions.review || []).map(esc).join(" · ")}</div></a>
       <button class="btn sm" data-ok="${d.id}">${icon("check")} Looks right</button></div>`).join("") || `<div class="empty">Nothing to check. New documents PaperJay isn't sure about show up here.</div>`;

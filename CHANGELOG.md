@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.5
+
+- **Check documents one after another.** Open a document from **Review → Needs review** and a bar at the
+  top says "Checking 2 of 5", with **Looks right & next**, **Trash & next** (with Undo) and **Skip**. Fix
+  anything on the right first; it's saved as you go. On a computer, press **A** for looks right and **S**
+  to skip. After the last one you're back on the Review page.
+- **Fixed: a street name made a bill a legal paper.** The "legal" topic was given to any document with
+  "Court" in it (12 Maple Court) or the word "legal" in its small print, and so its paper was kept for
+  good. It now needs real legal words (an attorney, a court date, a law firm). Every document is filed
+  again once after updating, which takes a few minutes in the background.
+
 ## 0.7.4
 
 - **Follow-up questions about something else.** After "How much was the electric bill?", asking "and the

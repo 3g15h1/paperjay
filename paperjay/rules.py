@@ -12,7 +12,7 @@ from . import topics as topics_mod
 from .dates import find_date
 from .textutil import ANSWER_DATE_RE, DATE_RE, MONEY_RE, MONTH_NAMES, normalize, parse_amount
 
-RULES_VERSION = 2  # bump when extraction changes, so every document is re-filed on upgrade (2: 0.3.2)
+RULES_VERSION = 3  # bump when extraction changes, so every document is re-filed on upgrade (2: 0.3.2; 3: 0.7.5 legal topic)
 
 # ---- shared evidence patterns (moved from analyze.py) ----
 

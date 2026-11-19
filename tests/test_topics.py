@@ -72,3 +72,13 @@ def test_vocabulary_is_large():
 
 def test_no_topic_for_plain_text():
     assert topics.match("the quick brown fox jumps over the lazy dog") == []
+
+
+def test_legal_needs_more_than_a_street_name_or_small_print():
+    """0.7.5: "12 Maple Court" made a water bill a legal paper (and so kept for good)."""
+    from paperjay.topics import match
+    names = lambda text: {t["name"] for t in match(text)}  # noqa: E731
+    assert "legal" not in names("City Water Department. Service address 12 Maple Court. Amount due $61.20")
+    assert "legal" not in names("Acme Energy bill. Legal disclaimer: rates subject to change. Food Court")
+    assert "legal" in names("Superior Court of the county. Notice of court date")
+    assert "legal" in names("Smith & Lee, Attorney at Law. Retainer invoice")
