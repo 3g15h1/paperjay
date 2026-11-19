@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.4
+
+- **Follow-up questions about something else.** After "How much was the electric bill?", asking "and the
+  water bill?" now answers straight away with the water bill's amount. Before, PaperJay only knew what you
+  wanted when the follow-up said it again. (Follow-ups that point back, like "and the other car?", still
+  go to the AI, which can tell which one you mean.)
+- **Instant answers pick the right document more often.** When several documents could answer, the one
+  whose own words name what you asked about wins (the water bill for "water", not the electric bill
+  filed under the same utility topics).
+
 ## 0.7.3
 
 - **Fix pages after a document was added.** On a document's page, **⋯ → Fix pages** shows every page: turn

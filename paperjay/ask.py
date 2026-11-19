@@ -692,6 +692,11 @@ class Asker:
         if not r["llm_docs"] or r["refused"] or r["listing"]:
             return None
         want = fact_intent((own if own is not None else question).lower())
+        if want is None and own is not None and not followups.REFERS_BACK.search(own):
+            # "How much was the electric bill?" then "and the water bill?": the follow-up names a new
+            # subject but not what's wanted, so that comes from the question it continues ("the other
+            # car?" points back instead, and needs the model to tell which)
+            want = fact_intent(question.lower())
         if want is None:
             return None
         subject = self.subject_terms(own if own is not None else question)
@@ -715,6 +720,19 @@ class Asker:
                         found.setdefault(i["value"], (n, name, card, i["label"]))
             elif card.get("total") is not None:
                 found.setdefault(card["total"], (n, name, card))
+        if len(found) > 1 and subject:
+            # several values, each from a document "about" the subject through broad topic words (a water
+            # bill's topics reach the electric bill too): the ones whose own words name it win
+            docs_by_n = {n: doc for n, doc, _ in r["llm_docs"]}
+
+            def names_it(x) -> bool:
+                doc, card = docs_by_n[x[0]], x[2]
+                words = set(tokenize(" ".join([doc.title, doc.correspondent or "", card.get("vendor") or "",
+                                               doc.content[:3000]])))
+                return all(any(w == t or (len(t) >= 4 and w.startswith(t)) for w in words) for t in subject)
+            strict = {v: x for v, x in found.items() if names_it(x)}
+            if strict:
+                found = strict
         if want[0] == "date" and len(found) > 1:
             # "when does it expire / when is it due" means the next one: past dates are history
             today = self.today.isoformat()
