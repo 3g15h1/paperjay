@@ -38,3 +38,13 @@ def test_ask_box_is_the_search_box():
     assert "search-fab" not in HTML and "m-search-input" not in HTML
     home = (STATIC / "js" / "home.js").read_text(encoding="utf-8")
     assert 'from "./search.js"' in home and "data-searchbox" in home
+
+
+def test_tab_bar_style_raised_round_add_button():
+    # 0.6.1: active tab in the accent colour; + is a raised round button with a label under it
+    css = (STATIC / "app.css").read_text(encoding="utf-8")
+    assert ".tabs a.on { color: var(--accent); }" in css
+    plus = re.search(r"\.tabs \.add span\.plus \{[^}]*\}", css).group(0)
+    assert "border-radius: 50%" in plus and "margin-top: -" in plus and "box-shadow" in plus
+    bar = re.search(r'<nav class="tabs"[^>]*>(.*?)</nav>', HTML, re.S).group(1)
+    assert re.search(r'class="add write-only">.*?</span>Add</a>', bar)

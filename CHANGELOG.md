@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+- **A new look for the bar at the bottom of the phone screen.** The **+** is now a big round button that sits
+  a little above the bar with a soft glow and says **Add** under it. The page you're on is shown in the accent
+  colour, and the icons and labels are a bit bigger and easier to tap.
+
 ## 0.6.0
 
 - **Connect Claude or another AI assistant.** PaperJay now has a built-in MCP server. In
