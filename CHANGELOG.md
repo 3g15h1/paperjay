@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.6
+
+- **Swipe all the way to delete.** In the Library, a short swipe left still just shows the trash-can button.
+  Keep swiping past it, most of the way across the document, and the button fills the space and turns a
+  stronger red (phones that can buzz give a small buzz): let go there and the document goes to the Trash
+  straight away, with **Undo**. Stop short and it simply shows the button.
+- The trash-can button now uses the same soft red as the **Failed** tag, in both dark and light themes.
+
 ## 0.5.5
 
 - **Swipe left to delete.** On a phone or tablet, swipe a document to the left in the Library to show a red

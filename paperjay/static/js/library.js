@@ -147,7 +147,7 @@ export async function show(view, { query }) {
     enabled: () => !selecting && !document.body.classList.contains("readonly"),
     onDelete: async (id, row) => {
       try { await api("/api/documents/bulk", { method: "POST", body: { ids: [id], action: "trash" } }); }
-      catch { swiper.close(); return; }     // api() has already said what went wrong
+      catch { swiper.close(row); return; }  // api() has already said what went wrong; slide the card back
       row.classList.add("gone");
       setTimeout(() => {
         results = results.filter((d) => d.id !== id); total = Math.max(0, total - 1);

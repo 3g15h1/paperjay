@@ -35,3 +35,24 @@ def test_delete_button_is_a_trash_icon_with_a_name():
     assert 'icon("trash")' in sw and 'aria-label="Delete"' in sw   # icon only, still named for screen readers
     html = (JS.parent / "index.html").read_text(encoding="utf-8")
     assert 'id="i-trash"' in html
+
+
+def test_full_swipe_deletes_and_needs_a_long_swipe():
+    sw = (JS / "swipe.js").read_text(encoding="utf-8")
+    assert 'classList.contains("armed")' in sw and "onDelete(+row.dataset.id, row)" in sw
+    # must be well past the button: node evaluates fullAt for a phone row and a narrow grid card
+    import re, shutil, subprocess
+    if not shutil.which("node"):
+        return
+    open_px = int(re.search(r"const OPEN = (\d+)", sw).group(1))
+    fn = re.search(r"export const fullAt = (.*?);\s", sw).group(1)
+    out = subprocess.run(["node", "-e", f"const OPEN={open_px}; const f={fn}; console.log(f(360), f(170))"],
+                         capture_output=True, text=True).stdout.split()
+    row, card = map(float, out)
+    assert row >= 360 * 0.6 and card >= open_px + 60 and card < 170   # reachable, but never by accident
+
+
+def test_delete_button_matches_the_failed_chip():
+    css = (JS.parent / "app.css").read_text(encoding="utf-8")
+    rule = css[css.index(".swipe-del {"):css.index(".swipe-del svg.i")]
+    assert "var(--bad-soft)" in rule and "color: var(--bad)" in rule
