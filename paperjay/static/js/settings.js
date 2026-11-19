@@ -25,6 +25,7 @@ export const SECTIONS = [
   { key: "questions", color: "blue", icon: "ask", title: "Questions", sub: "Example questions on the Ask page, and the words your household uses", admin: true },
   { key: "reminders", color: "amber", icon: "calendar", title: "Reminders", sub: "Bills that are due and things that expire", admin: true },
   { key: "filing", color: "pink", icon: "redo", title: "Filing", sub: "Re-file every document after you've tidied up", admin: true },
+  { key: "keeping", color: "red", icon: "trash", title: "Keeping paper", sub: "How long to keep each kind of paper before it can be shredded", admin: true },
   { key: "paper", color: "amber", icon: "archive", title: "Paper shelf", sub: "Number the paper originals you keep", admin: true },
   { key: "email", color: "orange", icon: "mail", title: "Email", sub: "Collect bills and statements that arrive by email", admin: true },
   { key: "appearance", color: "blue", icon: "sun", title: "Appearance", sub: "Light or dark" },
@@ -42,11 +43,12 @@ const backBar = () => `<div class="head" style="margin-bottom:6px"><a class="btn
 const LINKS = [
   { href: "/labels", color: "blue", icon: "tag", title: "Tags & companies", sub: "Rename, merge or remove the labels your documents are sorted by" },
   { href: "/trash", color: "red", icon: "trash", title: "Trash", sub: "Deleted documents, kept for 30 days in case you change your mind" },
+  { href: "/shred", color: "red", icon: "trash", title: "Paper to shred", sub: "Paper you've kept long enough, by its number on the shelf" },
   { href: "/taxpack", color: "green", icon: "download", title: "Tax pack", sub: "Every document for one tax year in one zip, with a spreadsheet of the amounts" },
   { href: "/secure", color: "teal", icon: "camera", title: "Camera scanner", sub: "A one-time setup on this phone so the camera can find the page and take the photo for you" },
 ];
 const GROUPS = [
-  { title: "Documents", items: ["/labels", "/trash", "/taxpack", "filing", "paper"] },
+  { title: "Documents", items: ["/labels", "/trash", "/taxpack", "filing", "paper", "keeping", "/shred"] },
   { title: "Adding documents", items: ["/secure", "email", "import"] },
   { title: "Reading and asking", items: ["reading", "ai", "questions", "feedback"] },
   { title: "People and reminders", items: ["people", "household", "reminders"] },
@@ -101,8 +103,9 @@ async function fillValues(view, admin) {
     put("ai", s.ai_provider && s.ai_provider !== "off" ? "On" : "Off");
     put("reminders", `${s.reminder_days} days ahead`);
     put("paper", s.paper_numbers ? "On" : "Off");
+    put("keeping", plural((s.keep_rules || []).length, "rule"));
   });
-  get("/api/summary").then((s) => s && put("trash", s.trash ? plural(s.trash, "document") : "Empty"));
+  get("/api/summary").then((s) => { if (!s) return; put("trash", s.trash ? plural(s.trash, "document") : "Empty"); put("shred", s.shred ? plural(s.shred, "paper") : "Nothing", s.shred ? "warn" : ""); });
   get("/api/auth/tokens").then((ts) => { if (ts) { const n = ts.filter((t) => t.permissions).length; put("assistants", n ? plural(n, "key") : "Not set up"); } });
   get("/healthz").then((h) => h && put("updates", "Version " + h.version));
   if (!admin) return;
@@ -216,6 +219,17 @@ export async function show(view, params) {
       <label class="check"><input type="checkbox" name="paper_numbers"><span>Number the paper I keep<div class="help">Uploading and scanning then offer “Keeping the paper?” with the next free number. Write it on the original (or print labels from the Library — selected documents, or a sheet of numbers ahead of time). Find a sheet by typing its number, like #124, in the Library search or in Ask.</div></span></label>
       <div><button class="btn primary">Save</button></div>
     </form></div>`,
+    keeping: () => `<div class="section"><div class="h"><h2>Keeping paper</h2></div>
+    <p class="sec-desc">How long to keep each kind of paper. When a paper on your shelf has been kept long enough, it shows up
+      in <a href="/shred">Paper to shred</a>. The first rule that matches a document decides; a document no rule matches is
+      kept for good. Only the paper is shredded: the digital copy stays in PaperJay. Categories are medical, insurance,
+      utilities, shopping, home, vehicle, tax, income, travel, food and finance; kinds are receipt, invoice, bill,
+      statement, insurance, tax, medical, pay, contract, id and letter; topics are the ones in Browse.</p>
+    <p class="help" style="margin:-4px 2px 12px">These start from common advice for US households. What you must keep differs by country and
+      situation (a business, a house sale, an audit), so check with your tax office or adviser and change them to fit.</p>
+    <div class="card list" id="rules"></div>
+    <div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn" id="addRule">${icon("plus")} Add a rule</button>
+      <span class="spacer" style="flex:1"></span><button class="btn ghost" id="resetRules">Back to the defaults</button><button class="btn primary" id="saveRules">Save</button></div></div>`,
     email: () => mailHTML(),
     assistants: () => `<div class="section"><div class="h"><h2>AI assistants (MCP)</h2></div>
       <p class="sec-desc">An AI assistant such as Claude can work with your documents through MCP: search them, read them,
@@ -361,6 +375,55 @@ export async function show(view, params) {
         toast(`Re-filing ${plural(r.queued, "document")}${r.queued_ai ? "; the AI reads them in the background" : ""}`);
       };
     }).catch(() => {});
+  }
+
+  // ---------- keeping paper ----------
+  if (sec === "keeping") {
+    let rules = structuredClone(s.keep_rules || []);
+    const list = (v) => (v || []).join(", ");
+    const words = (v) => v.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+    const draw = () => {
+      els.rules.innerHTML = rules.map((r, i) => `<div class="item" style="display:grid;gap:8px;align-items:start">
+        <div class="row" style="gap:8px;align-items:center">
+          <input class="input" data-r="name" data-i="${i}" value="${esc(r.name)}" style="flex:1;min-width:160px" aria-label="Rule name">
+          <button type="button" class="btn ghost sm icon" data-up="${i}" title="Check this rule earlier" aria-label="Move up" ${i ? "" : "disabled"}>↑</button>
+          <button type="button" class="btn ghost sm icon" data-del="${i}" title="Remove this rule">${icon("x")}</button></div>
+        <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="small">Keep</span>
+          <select class="input" data-r="forever" data-i="${i}" style="width:auto"><option value="years">for</option><option value="forever" ${r.years == null ? "selected" : ""}>for good</option></select>
+          <input class="input" type="number" min="0" max="100" data-r="years" data-i="${i}" value="${r.years ?? ""}" style="width:70px" ${r.years == null ? "hidden" : ""}>
+          <span class="small" ${r.years == null ? "hidden" : ""}>years after</span>
+          <select class="input" data-r="from" data-i="${i}" style="width:auto" ${r.years == null ? "hidden" : ""}><option value="year_end">the end of its year</option><option value="expires" ${r.from === "expires" ? "selected" : ""}>it expires</option></select></div>
+        <div class="row small" style="gap:8px;flex-wrap:wrap">
+          <label class="field" style="flex:1;min-width:140px">Categories<input class="input" data-r="categories" data-i="${i}" value="${esc(list(r.categories))}" placeholder="none"></label>
+          <label class="field" style="flex:1;min-width:140px">Kinds<input class="input" data-r="kinds" data-i="${i}" value="${esc(list(r.kinds))}" placeholder="none"></label>
+          <label class="field" style="flex:2;min-width:160px">Topics<input class="input" data-r="topics" data-i="${i}" value="${esc(list(r.topics))}" placeholder="none"></label></div>
+      </div>`).join("") || `<div class="item"><span class="main muted">No rules: every paper is kept for good.</span></div>`;
+    };
+    els.rules.addEventListener("input", (e) => {
+      const f = e.target.closest("[data-r]"); if (!f) return;
+      const r = rules[+f.dataset.i], k = f.dataset.r;
+      if (k === "name") r.name = f.value;
+      if (k === "years") r.years = f.value === "" ? 0 : +f.value;
+      if (k === "from") r.from = f.value;
+      if (["categories", "kinds", "topics"].includes(k)) r[k] = words(f.value);
+    });
+    els.rules.addEventListener("change", (e) => {
+      const f = e.target.closest("[data-r=forever]"); if (!f) return;
+      rules[+f.dataset.i].years = f.value === "forever" ? null : 1; draw();
+    });
+    els.rules.onclick = (e) => {
+      const up = e.target.closest("[data-up]"), del = e.target.closest("[data-del]");
+      if (up) { const i = +up.dataset.up; [rules[i - 1], rules[i]] = [rules[i], rules[i - 1]]; draw(); }
+      if (del) { rules.splice(+del.dataset.del, 1); draw(); }
+    };
+    els.addRule.onclick = () => { rules.push({ name: "New rule", years: 1, from: "year_end", categories: [], kinds: [], topics: [] }); draw(); };
+    els.saveRules.onclick = async () => { Object.assign(s, await api("/api/settings", { method: "PUT", body: { keep_rules: rules } })); rules = structuredClone(s.keep_rules); draw(); toast("Saved"); };
+    els.resetRules.onclick = async () => {
+      if (!await confirmBox("Go back to the default rules?", "Your own rules are replaced by the ones PaperJay starts with.", { ok: "Use the defaults" })) return;
+      Object.assign(s, await api("/api/settings", { method: "PUT", body: { keep_rules: null } })); rules = structuredClone(s.keep_rules); draw(); toast("Back to the defaults");
+    };
+    draw();
   }
 
   // ---------- paper shelf ----------

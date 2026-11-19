@@ -29,7 +29,9 @@ def validate(n) -> int:
 
 def next_free(con: sqlite3.Connection) -> int:
     """The next number to hand out: past every used number and every reserved range."""
-    used = con.execute("SELECT MAX(paper_no) FROM documents").fetchone()[0] or 0
+    # a shredded paper's number stays used: a new label must never repeat an old one
+    used = con.execute("SELECT MAX(MAX(COALESCE(paper_no, 0)), MAX(COALESCE(shredded_paper_no, 0))) "
+                       "FROM documents").fetchone()[0] or 0
     reserved = con.execute("SELECT MAX(last) FROM paper_reservations").fetchone()[0] or 0
     return max(used, reserved) + 1
 

@@ -331,7 +331,7 @@ _DOC = r"/api/documents/\d+"
 _LABEL = r"/api/labels/(tag|correspondent|document_type)"
 _NEEDS = [
     ("GET", r"/api/(documents|labels|upcoming|summary|suggest|browse|index|facts|ask/stream|paper/next|tasks|"
-            r"uploads|auth/status|ai/status)(/.*)?", {"read"}),
+            r"uploads|auth/status|ai/status|shred)(/.*)?", {"read"}),
     ("POST", r"/api/ask", {"read"}),
     ("POST|GET|DELETE", r"/mcp", set(PERMISSIONS)),   # each tool is checked again as its own request
     ("POST", r"/api/documents|/api/documents/post_document/", {"create"}),
@@ -340,7 +340,8 @@ _NEEDS = [
     ("POST", r"/api/labels/correspondent/\d+/aliases", {"create"}),
     ("PATCH", _DOC + "|" + _LABEL + r"/\d+", {"update"}),
     ("POST", _DOC + r"/(restore|reviewed|confirm-fields|confirm-filing|not-a-copy|refile|reprocess|analyze|"
-                    r"suggestions/accept)", {"update"}),
+                    r"suggestions/accept|shredded|unshred)", {"update"}),
+    ("POST", r"/api/shred/bulk", {"update"}),
     ("POST", _LABEL + r"/merge", {"update"}),
     ("POST", r"/api/documents/bulk", {"update", "delete"}),   # the action is checked in the endpoint
     ("POST", _DOC + r"/trash", {"delete"}),

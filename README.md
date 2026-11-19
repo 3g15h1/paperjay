@@ -49,6 +49,8 @@ runs on your own hardware.
 - **Makes a tax pack**: everything for one tax year in one zip, a folder per category and a spreadsheet of
   the amounts, for your accountant ([docs/tax-pack.md](docs/tax-pack.md)). Any Library list downloads as a
   spreadsheet too.
+- **Tells you what paper can go**: keep rules per kind of paper (tax papers seven years, bank statements one…),
+  and a list of the papers on your shelf you can shred now ([docs/keeping-paper.md](docs/keeping-paper.md)).
 - **Remembers dates**: bills coming due and policies expiring, on the start page, in your phone's calendar,
   and as JSON for Home Assistant.
 - **Gets out of your way**: one container, one data folder (SQLite, no Postgres or Redis), a plain-folder
@@ -82,7 +84,7 @@ default model on a CPU; a GPU makes it fast).
 
 - [Installing](docs/install.md) · [Choosing an AI model](docs/ai-models.md) · [Backups](docs/backups.md)
 - [Moving from Paperless-ngx](docs/migrate-from-paperless.md) · [Phones: camera, share sheet, shortcuts, calendar](docs/phone.md) · [Email](docs/email.md)
-- [The tax pack](docs/tax-pack.md) · [AI assistants (MCP)](docs/mcp.md) · [Home Assistant](docs/home-assistant.md) · [Export format](docs/export.md) · [API](docs/api.md)
+- [The tax pack](docs/tax-pack.md) · [Keeping and shredding paper](docs/keeping-paper.md) · [AI assistants (MCP)](docs/mcp.md) · [Home Assistant](docs/home-assistant.md) · [Export format](docs/export.md) · [API](docs/api.md)
 
 ## How it compares
 

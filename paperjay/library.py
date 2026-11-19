@@ -21,6 +21,8 @@ FILING_FIELDS = {"title", "doc_date", "correspondent_id", "document_type_id", "t
 # Fields the processing pipeline sets.
 PIPELINE_FIELDS = {"content", "status", "error", "page_count", "archive_checksum", "needs_review", "owner_id",
                    "suggestions", "category", "series_key", "simhash"}
+# How long to keep the paper, and whether it was shredded (keeping.py).
+KEEPING_FIELDS = {"keep_until", "shredded_at", "shredded_paper_no"}
 # Who made a change: a person, the AI, or the system (OCR's date and title guesses). The AI never
 # overrules a person; anyone overrules the system.
 SOURCES = {"person": "update", "ai": "ai_update", "system": "auto_update"}
@@ -139,7 +141,7 @@ class Library:
         SOURCES). Filing fields the AI changes are remembered in ai_fields until someone else changes them."""
         if by not in SOURCES:
             raise ValueError(f"unknown change source {by!r}")
-        unknown = set(fields) - FILING_FIELDS - PIPELINE_FIELDS
+        unknown = set(fields) - FILING_FIELDS - PIPELINE_FIELDS - KEEPING_FIELDS
         if unknown:
             raise ValueError(f"can't change {', '.join(sorted(unknown))}")
         if "doc_date" in fields:
@@ -152,6 +154,8 @@ class Library:
             v = fields["paper_no"]
             if v is not None and (isinstance(v, bool) or not isinstance(v, int) or v < 1):
                 raise ValueError("paper number must be a whole number, 1 or more")
+        if fields.get("keep_until") is not None:
+            check_date(fields["keep_until"])
         if "category" in fields:
             v = fields["category"]
             if v is not None and (not isinstance(v, str) or not v.strip() or len(v) > 40):

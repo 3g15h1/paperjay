@@ -58,7 +58,7 @@ def documents(con: Con, q: str = "", tags: str | None = None, correspondent_id: 
         raise HTTPException(400, str(e))
 
 
-EDITABLE = {"title", "doc_date", "correspondent_id", "document_type_id", "tags", "paper_no", "category"}
+EDITABLE = {"title", "doc_date", "correspondent_id", "document_type_id", "tags", "paper_no", "category", "keep_until"}
 
 
 @router.patch("/api/documents/{doc_id}")
@@ -388,4 +388,5 @@ def summary(con: Con):
     counts = Library(con).counts()
     processing = con.execute("SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL "
                              "AND status IN ('pending', 'processing')").fetchone()[0]
-    return {**counts, "processing": processing}
+    from . import keeping
+    return {**counts, "processing": processing, "shred": keeping.count_ready(con)}

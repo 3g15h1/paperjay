@@ -4,9 +4,26 @@ import { $, $$, api, esc, icon, fmtDate, ago, money, labels, tagChip, combo, ens
 
 export const nav = "library";
 const FIELD_NAMES = { title: "title", doc_date: "date", correspondent_id: "company", document_type_id: "type", tags: "tags",
-  paper_no: "paper number", content: "text", status: "status", needs_review: "review", error: "note" };
+  paper_no: "paper number", keep_until: "keep the paper until", shredded_at: "paper shredded", shredded_paper_no: "shredded paper number", content: "text", status: "status", needs_review: "review", error: "note" };
 const ACTIONS = { add: "Added", update: "Edited", ai_update: "Filed by the AI", auto_update: "Read by OCR", note: "Note added",
   trash: "Moved to the trash", restore: "Restored", purge: "Deleted" };
+
+// How long to keep the paper (keeping.py): the date and the rule behind it, a choice to change it, and
+// once it's shredded, when (with undo).
+function keepField(k) {
+  if (!k) return "";
+  if (k.shredded_at) return `<div class="field"><span class="lab">Paper</span><div class="row" style="gap:8px;align-items:center">
+    <span>Shredded on ${esc(fmtDate(k.shredded_at.slice(0, 10)))}${k.shredded_paper_no ? ` (it was no. ${k.shredded_paper_no})` : ""}</span>
+    <button type="button" class="btn ghost sm" data-act="unshred">Undo</button></div><span class="help">The digital copy stays here.</span></div>`;
+  const when = k.until === "9999-12-31" ? "For good" : `Until ${fmtDate(k.until)}`;
+  const past = k.until !== "9999-12-31" && k.until < new Date().toISOString().slice(0, 10);
+  return `<label class="field"><span class="lab">Keep the paper</span><select class="input" id="f-keep">
+      <option value="current" selected>${esc(when)}${past ? " · can be shredded" : ""}</option>
+      ${k.own ? `<option value="rules">Follow the keep rules</option>` : ""}
+      ${k.until !== "9999-12-31" ? `<option value="forever">Keep it for good</option>` : ""}
+      <option value="date">Until a date…</option></select>
+    <span class="help">${k.own ? "Your own choice for this document." : `Keep rule: ${esc(k.why)}.`} <a href="/settings/keeping">Keep rules</a></span></label>`;
+}
 
 export async function show(view, { id }) {
   let doc;
@@ -65,6 +82,7 @@ export async function show(view, { id }) {
         <div><button class="btn sm primary" data-act="reviewed">${icon("check")} Looks right</button></div></div>` : ""}
       <label class="field"><span class="lab">Date${aiMark("doc_date")}</span><input class="input" type="date" id="f-date" value="${esc(doc.doc_date || "")}"></label>
       <label class="field"><span class="lab">Paper no.${aiMark("paper_no")}</span><input class="input" type="number" min="1" step="1" id="f-paper" value="${doc.paper_no ?? ""}" placeholder="Not numbered"><span class="help">The number written on the paper original. Empty clears it.</span></label>
+      ${keepField(doc.keeping)}
       <label class="field"><span class="lab">Company${aiMark("correspondent_id")}</span><select class="input" id="f-corr"><option value="">—</option>${corrs.map((c) => `<option value="${c.id}" ${c.id === doc.correspondent_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}<option value="new">+ New company…</option></select></label>
       <label class="field"><span class="lab">Type${aiMark("document_type_id")}</span><select class="input" id="f-type"><option value="">—</option>${types.map((c) => `<option value="${c.id}" ${c.id === doc.document_type_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}<option value="new">+ New type…</option></select></label>
       <div class="field"><span class="lab">Tags${aiMark("tags")}</span><div class="tagpick">${doc.tags.map((t) => `<span class="chip tag" style="--c:${esc(t.color)}">${esc(t.name)}<button type="button" data-untag="${t.id}" aria-label="Remove">✕</button></span>`).join("")}
@@ -78,6 +96,19 @@ export async function show(view, { id }) {
     const save = (fields) => patch(fields);
     $("#f-date", els.pane).onchange = (e) => save({ doc_date: e.target.value || null });
     $("#f-paper", els.pane).onchange = (e) => { const v = e.target.value.trim(); save({ paper_no: v ? parseInt(v, 10) : null }); };
+    const keep = $("#f-keep", els.pane);
+    if (keep) keep.onchange = async () => {
+      if (keep.value === "rules") return save({ keep_until: null });
+      if (keep.value === "forever") return save({ keep_until: "9999-12-31" });
+      if (keep.value === "date") {
+        const v = prompt("Keep the paper until (YYYY-MM-DD)", doc.keeping?.until && doc.keeping.until !== "9999-12-31" ? doc.keeping.until : "");
+        if (v && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return save({ keep_until: v.trim() });
+        if (v) toast("Write the date like 2030-12-31");
+        drawDetails();
+      }
+    };
+    const unshred = $("[data-act=unshred]", els.pane);
+    if (unshred) unshred.onclick = async () => { await api(`/api/documents/${doc.id}/unshred`, { method: "POST" }); doc = await api(`/api/documents/${doc.id}`); drawTop(); drawTab(); };
     const pickSelect = (sel, kind, field) => sel.onchange = async () => {
       if (sel.value === "new") {
         const name = prompt(kind === "correspondent" ? "New company name" : "New type name");

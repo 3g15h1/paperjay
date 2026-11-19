@@ -273,6 +273,7 @@ export async function show(view, { query }) {
       const n = tidy.documents - (c.failed || 0);
       if (n > 0) attn.push(`<a class="item" href="/review?tab=tidy"><span class="main"><div class="t">${plural(n, "document")} to tidy up</div><div class="sub">${esc(gaps.slice(0, 3).join(" · ") || "Filing that needs a second look")}</div></span><span class="chip accent">Tidy up</span></a>`);
     }
+    if (sum && sum.shred) attn.push(`<a class="item" href="/shred"><span class="main"><div class="t">${plural(sum.shred, "paper")} you can shred</div><div class="sub">Kept as long as your keep rules say</div></span><span class="chip">Shred</span></a>`);
     if (sum && sum.processing) attn.push(`<a class="item" href="/upload"><span class="main"><div class="t">${plural(sum.processing, "document")} being read</div><div class="sub">OCR is running</div></span><span class="chip accent">Reading…</span></a>`);
     els.attnWrap.hidden = !attn.length; els.attn.innerHTML = attn.join("");
     els.newWrap.hidden = !recent.results.length;

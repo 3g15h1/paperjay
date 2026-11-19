@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.1
+
+- **"Can I shred this?"** PaperJay now knows how long to keep each kind of paper: bank statements and
+  utility bills a year, medical bills three years, tax papers seven years, insurance a year after it
+  expires, and contracts, IDs and medical records for good. A paper no rule covers is kept for good.
+- **Paper to shred** (Settings, and on the start page when there is some) lists the papers on your shelf
+  that have been kept long enough, by their number. Tap **Shredded** once it's gone (with **Undo**), or
+  **Keep it** to keep that one for good. Only the paper goes: the digital copy stays in PaperJay. A
+  shredded paper's number is never given to a new paper.
+- **Every document says how long to keep its paper**, and which rule says so. Change it for one document:
+  keep it for good, until a date you choose, or back to the rules.
+- **Settings → Keeping paper** lists the rules. Change the years, what each rule covers and their order,
+  add your own, or go back to the defaults. The defaults follow common advice for US households; what you
+  must keep differs by country, so check and adjust them.
+- Changes the database (three new columns for keeping and shredding); PaperJay backs it up first, as
+  always. Exports include the new fields, and importing an export brings them back.
+
 ## 0.7.0
 
 - **A tax pack for your accountant.** Settings → Tax pack (or `/taxpack`) gathers everything for one tax

@@ -148,6 +148,24 @@ EXTRA_DOCS = [
           card=dict(kind="statement", category="finance", total=None, dates=[("issued", date(LAST, 2, 28))],
                     ids=[("account", "CU-0088 1203")], summary="Monthly checking account statement."))),
 ]
+# Older paper that the default keep rules say can go (for the shredding list)
+OLD = TODAY.year - 2
+EXTRA_DOCS += [
+    ("acme old.jpg", page("Acme Energy", "Residential electric service", [
+        ("Statement date", long(date(OLD, 3, 7))), ("Account number", "7730 1184 52"), "",
+        ("Electric delivery", "$58.10"), ("Electric supply", "$66.25"), ("Taxes and fees", "$8.91"), "",
+        ("**", f"Amount due {us(date(OLD, 3, 28))}            $133.26")]),
+     dict(title="Acme Energy electric bill March", correspondent="Acme Energy", type="Bill", tags=["Utilities", "Bills"],
+          card=dict(kind="bill", category="utilities", total=133.26, dates=[("issued", date(OLD, 3, 7)), ("due", date(OLD, 3, 28))],
+                    ids=[("account", "7730 1184 52")], summary="Monthly electric bill."))),
+    ("statement old.pdf", page("Example Credit Union", "Checking account statement", [
+        ("Statement period", f"{us(date(OLD, 9, 1))} to {us(date(OLD, 9, 30))}"), ("Account", "CU-0088 1203"), "",
+        ("Opening balance", "$1,980.40"), ("Deposits", "$4,853.30"), ("Withdrawals", "$4,402.77"),
+        ("**", "Closing balance                          $2,430.93")], accent=(40, 90, 160)),
+     dict(title="Credit union statement September", correspondent="Example Credit Union", type="Statement", tags=[],
+          card=dict(kind="statement", category="finance", total=None, dates=[("issued", date(OLD, 9, 30))],
+                    ids=[("account", "CU-0088 1203")], summary="Monthly checking account statement."))),
+]
 TAG_COLORS = {"Taxes": "#e5a50a", "Utilities": "#6ea8fe", "Bills": "#f2c14e", "Car": "#5ccfe6", "Insurance": "#7fd1a1", "Medical": "#f07178",
               "Electronics": "#c792ea", "Home": "#d4a373"}
 
@@ -202,6 +220,10 @@ def main(data_dir: str) -> None:
         with db.transaction(con):
             analyze.save_card(con, doc_id, lib.get(doc_id)["content"], "demo", card)
         profile.refile(con, doc_id)   # category, topics and the A–Z index from the card just saved
+    # the paper shelf: the household numbers the paper it keeps (oldest first)
+    from paperjay import settings
+    settings.save(con, {"paper_numbers": True})
+    lib.assign_paper_numbers([i for i in ids[:len(EXTRA_DOCS)] if i])
     print(f"demo library ready in {data}: {len([i for i in ids if i])} documents")
     print(json.dumps(Library(con).counts()))
 

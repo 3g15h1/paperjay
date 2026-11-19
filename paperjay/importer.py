@@ -131,6 +131,12 @@ def import_one(con: sqlite3.Connection, store: FileStore, meta: dict, original: 
         labels["tags"] = tag_ids
     if labels:
         lib.update(doc_id, user_id=user_id, by="system", **labels)
+    keeping = {k: meta[k] for k in ("keep_until", "shredded_at", "shredded_paper_no") if meta.get(k) is not None}
+    if keeping:   # a PaperJay export: how long to keep the paper, and whether it was shredded
+        try:
+            lib.update(doc_id, user_id=user_id, by="system", **keeping)
+        except (ValueError, TypeError):
+            pass
     for note in meta.get("notes") or []:
         if str(note).strip():
             lib.add_note(doc_id, str(note), user_id=user_id)
@@ -328,7 +334,8 @@ def import_export(db_path, store: FileStore, folder, user_id: int | None = None)
                         "correspondent": d.get("correspondent"), "document_type": d.get("document_type"),
                         "tags": [{"name": t, "color": colors.get(t)} for t in d.get("tags", [])],
                         "notes": [n["text"] for n in d.get("notes", [])], "content": d.get("text") or "",
-                        "paper_no": d.get("paper_no"),
+                        "paper_no": d.get("paper_no"), "keep_until": d.get("keep_until"),
+                        "shredded_at": d.get("shredded_at"), "shredded_paper_no": d.get("shredded_paper_no"),
                         "original_name": d.get("original_name"), "mime_type": d.get("mime_type"), "pages": d.get("pages")}
                 new_id = import_one(con, store, meta, original, archive, user_id, "paperjay-export")
                 _progress(**({"imported": PROGRESS["imported"] + 1} if new_id else {"duplicates": PROGRESS["duplicates"] + 1}))

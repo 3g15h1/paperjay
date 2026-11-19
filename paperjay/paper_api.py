@@ -8,12 +8,16 @@
         &layout=5160      5160 (30/page, Letter) | 7160 (21/page, A4) | single62 (one 62 mm label)
         &base=https://…   address the QR codes hold; default: the Secure (HTTPS) address when
                           one is set up, else the address this was requested from
+    GET  /api/shred?all=              paper past its keep-until date (keeping.py)
+    POST /api/documents/{id}/shredded the paper was shredded (frees its shelf number); …/unshred undoes it
+    POST /api/shred/bulk              {ids} several at once
 """
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 
 from . import labels_pdf, papers, settings
-from .api import Con, User
+from .api import Con, User, _doc_or_404
+from .library import now_iso
 from .https import allowed
 
 router = APIRouter()
@@ -82,3 +86,52 @@ def paper_labels(request: Request, con: Con, user: User,
 def _pdf(data: bytes) -> Response:
     return Response(data, media_type="application/pdf",
                     headers={"Content-Disposition": 'inline; filename="paper-labels.pdf"'})
+
+
+# ---- how long to keep the paper, and shredding it (keeping.py) ----
+
+@router.get("/api/shred")
+def shred_list(con: Con, all: bool = False):
+    """Paper whose keep-until date has passed. all=true adds documents without a shelf number."""
+    from . import keeping
+    docs = keeping.ready(con, shelf_only=not all)
+    return {"documents": docs, "count": len(docs), "paper_numbers": bool(settings.get(con, "paper_numbers"))}
+
+
+def _shred(con, doc_id: int, user) -> dict:
+    from .library import Library
+    lib = Library(con)
+    doc = _doc_or_404(lib, doc_id)
+    if doc["shredded_at"]:
+        return doc
+    return lib.update(doc_id, user_id=user, by="person", shredded_at=now_iso(),
+                      shredded_paper_no=doc["paper_no"], paper_no=None)
+
+
+@router.post("/api/documents/{doc_id}/shredded")
+def shredded(con: Con, user: User, doc_id: int):
+    """The paper was shredded: its shelf number is freed (never reused); the digital copy stays."""
+    return _shred(con, doc_id, user)
+
+
+@router.post("/api/shred/bulk")
+def shredded_many(con: Con, user: User, payload: dict):
+    ids = payload.get("ids") or []
+    if not isinstance(ids, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in ids):
+        raise HTTPException(400, "ids must be a list of document ids")
+    for doc_id in ids[:1000]:
+        _shred(con, doc_id, user)
+    return {"shredded": len(ids[:1000])}
+
+
+@router.post("/api/documents/{doc_id}/unshred")
+def unshred(con: Con, user: User, doc_id: int):
+    """Undo "shredded": the paper number comes back if no other document took it meanwhile."""
+    from .library import Library
+    lib = Library(con)
+    doc = _doc_or_404(lib, doc_id)
+    if not doc["shredded_at"]:
+        return doc
+    n = doc["shredded_paper_no"]
+    back = n if n is not None and papers.holder(con, n, exclude_doc=doc_id) is None else None
+    return lib.update(doc_id, user_id=user, by="person", shredded_at=None, shredded_paper_no=None, paper_no=back)

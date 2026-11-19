@@ -9,6 +9,7 @@ import re
 import sqlite3
 
 from .db import get_setting, set_setting, transaction
+from .keep_rules import DEFAULT_RULES as DEFAULT_KEEP_RULES
 
 DEFAULTS = {
     # Reading documents
@@ -51,6 +52,8 @@ DEFAULTS = {
     "ai_batch_hours": "01:00-06:00",  # when bulk AI re-reads may run (B.4), in the server's time zone (TZ)
     # Email
     "mail_time": "02:30",          # when mailboxes are checked each night (server time, HH:MM); "" = never
+    # How long to keep the paper (keeping.py): first matching rule wins; nothing matched = keep for good
+    "keep_rules": DEFAULT_KEEP_RULES,
     # Tax pack
     "tax_year_start": "01-01",     # month-day the tax year starts: 01-01, 04-06 (UK), 07-01 (Australia)…
     # Updates
@@ -93,6 +96,9 @@ def _validate(key: str, value):
                 isinstance(v, dict) and isinstance(v.get("name"), str) for v in value):
             raise ValueError("custom_topics must be a list of topics with a name")
         return value
+    if key == "keep_rules":
+        from .keeping import validate_rules
+        return validate_rules(DEFAULT_KEEP_RULES if value is None else value)   # None = back to the defaults
     if key == "household_people":
         if not isinstance(value, list) or not all(isinstance(v, dict) for v in value):
             raise ValueError("household_people must be a list of people")
