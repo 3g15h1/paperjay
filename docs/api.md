@@ -50,7 +50,7 @@ Server-Sent Events.
 | `GET /api/fields` · `POST` · `PATCH`/`DELETE /api/fields/{id}` | the household's own fields `{name, kind: text\|number\|money\|date, fill: ""\|total\|id:<words>\|date:<label>}` (changing them: admins) |
 | `PUT /api/documents/{id}/fields/{field}` | `{value}`: a document's value (`""` none, `null` fill itself); `GET /api/documents/{id}` lists them in `fields` |
 | `GET /api/documents/{id}/find?q=` | where the words are on its pages: boxes as fractions of each page |
-| `POST /api/documents/{id}/notes` · `/trash` · `/restore` · `/reprocess` · `/analyze` | actions |
+| `POST /api/documents/{id}/notes` · `/trash` · `/restore` · `/reprocess` · `/analyze` · `/vision` | actions (`/vision`: read every page with the vision model) |
 | `POST /api/documents/{id}/edit-pages` | `{pages: [{n, rotate, keep}], split_after: [n]}`: turn, take out, reorder, split; returns the new `documents` (the old one goes to the trash) |
 | `POST /api/documents/merge` | `{ids}` in page order: join into one new document |
 | `POST /api/documents/bulk` | `{ids, action, value}`: add_tags, remove_tags, set_correspondent, set_type, trash, … |

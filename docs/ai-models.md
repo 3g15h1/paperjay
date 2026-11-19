@@ -52,6 +52,29 @@ on a thinking step for every filing. **Answer without a thinking step** (setting
 skip it: PaperJay sends `reasoning_effort: "none"` and `chat_template_kwargs: {"enable_thinking": false}` to
 OpenAI-compatible servers and `think: false` to Ollama. Leave it off for servers that reject those fields.
 
+## Reading hard pages (vision models)
+
+OCR (Tesseract) reads printed text well, but not handwriting, and not much of a faint or crumpled photo. A
+model that can see pictures can. Turn it on under **Settings → Smart filing (AI) → Read hard pages with the
+AI**, and give the vision model's name:
+
+| Model (Ollama) | Size | Notes |
+|---|---|---|
+| `qwen2.5vl:7b` | ~6 GB | good at handwriting and receipts; the best start with a graphics card |
+| `qwen2.5vl:3b` | ~3 GB | for a CPU or a small graphics card |
+| `minicpm-v` | ~5 GB | another good all-rounder |
+
+Install it first (`ollama pull qwen2.5vl:7b`); any OpenAI-compatible server with image input works too.
+
+- **Pages OCR couldn't read well** (the usual choice): after OCR, pages with very few real words, or mostly
+  garbage, are sent to the model one at a time. **Every page** sends them all. On one document, **⋯ → Read
+  with the AI** reads every page, whatever the setting.
+- The model's text replaces OCR's for that page; the document then says which pages the AI read, so you can
+  check names and numbers (a vision model can misread too). Filing and answers use the new text.
+- On a CPU each page can take a minute or more, so it runs on the AI's own queue and never holds up new
+  documents being read. At most 20 pages per document.
+- The searchable PDF keeps OCR's text layer, so search words are only marked on the page where OCR found them.
+
 ## Settings
 
 In **Settings → Smart filing (AI)** (or with `PUT /api/settings`): provider (`off`, `ollama`, `openai`), server address,

@@ -26,7 +26,8 @@ runs on your own hardware.
 
 - **Reads everything.** PDFs, phone photos (HEIC too), scans and multi-page TIFFs, through
   [OCRmyPDF](https://ocrmypdf.readthedocs.io/) and Tesseract: pages are turned upright, straightened and made
-  into a searchable PDF/A. Your original file is kept byte for byte.
+  into a searchable PDF/A. Your original file is kept byte for byte. With a local vision model, handwriting
+  and poor photos are read by the AI too.
 - **Files it for you** (with AI): title, date, company, document type and tags, read from the text. It never
   changes anything a person has set, only uses tags the text supports, and puts anything uncertain in
   **Needs review**.
@@ -96,7 +97,7 @@ default model on a CPU; a GPU makes it fast).
 
 | | PaperJay | Paperless-ngx | Paperless-ngx + paperless-ai / paperless-gpt |
 |---|---|---|---|
-| OCR | OCRmyPDF + Tesseract | OCRmyPDF + Tesseract | Paperless's, or an LLM's (paperless-gpt) |
+| OCR | OCRmyPDF + Tesseract, plus a local vision model for hard pages | OCRmyPDF + Tesseract | Paperless's, or an LLM's (paperless-gpt) |
 | Runs as | one app, SQLite | web app + worker, Postgres/MariaDB (or SQLite) + Redis | Paperless plus another app |
 | AI filing | optional, local; grounded in the text, never overrides people | rule-based matching, optional AI suggestions | the add-on's job |
 | Questions with cited, checked answers | yes, plus totals and instant facts | no | chat (paperless-ai) |

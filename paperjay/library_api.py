@@ -15,6 +15,7 @@
     GET    /api/documents/{id}/find?q=         where the words of a search are on its pages (findwords.py)
     GET    /api/fields, POST (admin), PATCH/DELETE /api/fields/{id}   the household's own fields (fields.py)
     PUT    /api/documents/{id}/fields/{field}  {value}: a document's value ('' none, null fill itself)
+    POST   /api/documents/{id}/vision          read every page again with the vision model (vision.py)
     GET    /api/labels/{kind}, POST …, PATCH /api/labels/{kind}/{id}, DELETE …, POST /api/labels/{kind}/merge
     GET    /api/views, POST …, DELETE /api/views/{id}   saved searches
     GET    /api/summary                        counts for the navigation
@@ -518,3 +519,18 @@ def set_field(con: Con, user: User, doc_id: int, field_id: int, payload: dict):
     except ValueError as e:
         raise HTTPException(400, str(e))
     return fields.for_document(con, doc_id, analyze.get_card(con, doc_id, doc["content"]))
+
+
+@router.post("/api/documents/{doc_id}/vision")
+def read_with_vision(request: Request, con: Con, doc_id: int):
+    """Read every page again with the vision model (vision.py), e.g. for handwriting."""
+    from . import vision
+    doc = _doc_or_404(Library(con), doc_id)
+    if vision.config(con) is None:
+        raise HTTPException(400, "set up a vision model first (Settings → Smart filing → Read hard pages with the AI)")
+    if doc["status"] != "ready" or not (doc["archive_checksum"] or doc["mime_type"] == "application/pdf"):
+        raise HTTPException(400, "PaperJay can do this once it has read the document")
+    with transaction(con):
+        jobs.enqueue(con, vision.VISION_JOB, document_id=doc_id, priority=90, payload={"all": True})
+    request.app.state.paperjay["ai_worker"].wake()
+    return {"queued": True}

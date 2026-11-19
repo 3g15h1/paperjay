@@ -435,7 +435,7 @@ _NEEDS = [
     ("PATCH", _DOC + "|" + _LABEL + r"/\d+", {"update"}),
     ("PUT", _DOC + r"/fields/\d+", {"update"}),
     ("POST", _DOC + r"/(restore|reviewed|confirm-fields|confirm-filing|not-a-copy|refile|reprocess|analyze|"
-                    r"suggestions/accept|shredded|unshred)", {"update"}),
+                    r"suggestions/accept|shredded|unshred|vision)", {"update"}),
     ("POST", r"/api/shred/bulk", {"update"}),
     ("POST", _DOC + r"/edit-pages|/api/documents/merge", {"create"}),   # delete is checked in the endpoint
     ("POST", _LABEL + r"/merge", {"update"}),

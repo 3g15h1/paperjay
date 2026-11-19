@@ -181,6 +181,10 @@ export async function show(view, params) {
         <label class="field" id="keyField">Password for the AI program<input class="input" name="ai_api_key" type="password" autocomplete="off" placeholder="Only if it asks for one">
           <span class="help">Some AI programs and online services need a key; Ollama doesn't.</span></label>
         <label class="check"><input type="checkbox" name="ai_no_think"><span>Answer without a thinking step<div class="help">For models that think before they answer (Qwen3 and similar). Much faster; turn it off if your AI program complains.</div></span></label>
+        <label class="field">Read hard pages with the AI<select class="input" name="vision_ocr"><option value="off">No</option><option value="weak">Pages OCR couldn't read well (handwriting, poor photos)</option><option value="always">Every page</option></select>
+          <span class="help">Needs a model that can see pictures, on the same AI program. On a computer without a graphics card each page can take a minute or more. You can also ask for it on one document (⋯ → Read with the AI).</span></label>
+        <label class="field" id="visionModelField">Vision model<input class="input" name="vision_model" placeholder="qwen2.5vl:7b" autocapitalize="none">
+          <span class="help">For example qwen2.5vl:7b or minicpm-v on Ollama (install it first with <code>ollama pull qwen2.5vl:7b</code>).</span></label>
         <label class="check"><input type="checkbox" name="ai_filing"><span>Name and sort new documents for me<div class="help">Fills in the title, date, company, type and tags. It never changes anything you've set yourself, and anything it isn't sure about waits for you in Needs review.</div></span></label>
         <label class="check"><input type="checkbox" name="ai_new_correspondents"><span>Add companies it hasn't seen before<div class="help">Otherwise it only picks from the companies you already have.</div></span></label>
         <details class="adv" id="threadField"><summary>Advanced</summary><label class="field" style="margin-top:10px">Processor cores the AI may use<input class="input" name="ai_threads" type="number" min="0" max="128">
@@ -318,6 +322,7 @@ export async function show(view, params) {
       for (const k of ["ai_provider", "ai_url", "ai_model", "embed_model", "embed_source", "ai_api_key", "ai_threads"]) f.elements[k].value = s[k] ?? "";
       f.elements.ai_filing.checked = s.ai_filing; f.elements.ai_new_correspondents.checked = s.ai_new_correspondents;
       f.elements.ai_no_think.checked = s.ai_no_think;
+      f.elements.vision_ocr.value = s.vision_ocr || "off"; f.elements.vision_model.value = s.vision_model || "";
       sync();
     };
     function sync() {
@@ -332,6 +337,7 @@ export async function show(view, params) {
       ai_provider: f.elements.ai_provider.value, ai_url: f.elements.ai_url.value.trim() || "http://localhost:11434",
       ai_model: f.elements.ai_model.value.trim(), embed_model: f.elements.embed_model.value.trim(), ai_api_key: f.elements.ai_api_key.value,
       embed_source: f.elements.embed_source.value, ai_no_think: f.elements.ai_no_think.checked,
+      vision_ocr: f.elements.vision_ocr.value, vision_model: f.elements.vision_model.value.trim(),
       ai_threads: +f.elements.ai_threads.value || 0, ai_filing: f.elements.ai_filing.checked, ai_new_correspondents: f.elements.ai_new_correspondents.checked,
     });
     f.onsubmit = async (e) => { e.preventDefault(); Object.assign(s, await api("/api/settings", { method: "PUT", body: aiValues() })); toast("Saved"); refreshAI(); drawStatus(); };

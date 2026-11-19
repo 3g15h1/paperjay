@@ -310,6 +310,7 @@ export async function show(view, { id, query }) {
     menu.style.top = (r.bottom + scrollY + 4) + "px"; menu.style.right = (innerWidth - r.right) + "px";
     menu.innerHTML = `<button class="btn ghost" data-m="analyze" style="justify-content:flex-start">${icon("sparkle")} File again with AI</button>
       <button class="btn ghost" data-m="reprocess" style="justify-content:flex-start">${icon("redo")} Read again (OCR)</button>
+      ${doc.status === "ready" && !doc.deleted_at && (doc.archive_checksum || doc.mime_type === "application/pdf") ? `<button class="btn ghost" data-m="vision" style="justify-content:flex-start">${icon("eye")} Read with the AI (handwriting)</button>` : ""}
       ${doc.status === "ready" && !doc.deleted_at && (doc.archive_checksum || doc.mime_type === "application/pdf") ? `<button class="btn ghost" data-m="pages" style="justify-content:flex-start">${icon("file")} Fix pages (turn, take out, split)</button>` : ""}
       ${doc.paper_no ? `<button class="btn ghost" data-m="label" style="justify-content:flex-start">${icon("tag")} Print paper label</button>` : ""}
       ${doc.deleted_at ? "" : `<button class="btn ghost danger" data-m="trash" style="justify-content:flex-start">${icon("trash")} Move to trash</button>`}`;
@@ -321,6 +322,10 @@ export async function show(view, { id, query }) {
       const b = e.target.closest("[data-m]"); if (!b) return; close();
       if (b.dataset.m === "analyze") { await api(`/api/documents/${doc.id}/analyze`, { method: "POST" }); toast("The AI will file it again shortly"); }
       if (b.dataset.m === "pages") (await import("./pageeditor.js")).openPageEditor(doc);
+      if (b.dataset.m === "vision") {
+        const r = await api(`/api/documents/${doc.id}/vision`, { method: "POST" }).catch(() => null);
+        if (r) toast("The AI will read every page. That can take a few minutes; the text updates by itself.");
+      }
       if (b.dataset.m === "label") window.open(`/api/paper-labels.pdf?ids=${doc.id}&layout=single62`, "_blank");
       if (b.dataset.m === "reprocess" && await confirmBox("Read it again?", "OCR runs again on the original file. Fields you've set stay as they are.", { ok: "Read again" })) {
         await api(`/api/documents/${doc.id}/reprocess`, { method: "POST" }); reload();

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.1
+
+- **Handwriting and bad photos, read by the AI.** With a vision model on your AI program (for example
+  `qwen2.5vl:7b` on Ollama), Settings → Smart filing → **Read hard pages with the AI** sends the pages OCR
+  couldn't read well (handwriting, faint or crumpled photos) to the model, which copies their text. Choose
+  **Every page** to send them all. On any document, **⋯ → Read with the AI** does it for every page.
+- The document then says which pages the AI read, so you can check names and numbers. Filing, totals and
+  answers use the new text. It runs on the AI's own queue, so new documents are never held up. Off by
+  default; see [choosing an AI model](docs/ai-models.md).
+
 ## 0.8.0
 
 - **Two-step sign-in.** Settings → Your account → **Turn on two-step sign-in**: scan the code with an

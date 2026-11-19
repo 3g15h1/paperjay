@@ -25,7 +25,9 @@ DEFAULTS = {
     "ai_keep_alive": "24h",        # how long Ollama keeps the model loaded
     "embed_model": "nomic-embed-text",  # search by meaning with embed_source "ai": the AI program's embedding model
     "embed_source": "builtin",     # search by meaning: builtin (a small model inside PaperJay) | ai (embed_model) | off
-    "ai_no_think": False,          # ask reasoning models (Qwen3, ...) to answer without a thinking step: much faster
+    "ai_no_think": False,
+    "vision_ocr": "off",           # 0.8.1: read hard pages with a vision model: off | weak (pages OCR read badly) | always
+    "vision_model": "",            # a model that sees images, on the same AI server (qwen2.5vl:7b, minicpm-v…)          # ask reasoning models (Qwen3, ...) to answer without a thinking step: much faster
     # What the AI may do on its own
     "ai_filing": True,             # set title, date, company, type and existing tags on new documents
     "ai_new_correspondents": True,  # add companies it finds in a document's text
@@ -63,7 +65,7 @@ DEFAULTS = {
 ENV = {"ocr_language": "OCR_LANGUAGE", "date_order": "DATE_ORDER", "ai_provider": "AI_PROVIDER", "ai_url": "AI_URL", "ai_model": "AI_MODEL", "ai_api_key": "AI_API_KEY",
        "ai_threads": "AI_THREADS", "embed_model": "EMBED_MODEL",
        "embed_source": "EMBED_SOURCE", "update_check": "UPDATE_CHECK",
-       "tax_year_start": "TAX_YEAR_START"}
+       "tax_year_start": "TAX_YEAR_START", "vision_ocr": "VISION_OCR", "vision_model": "VISION_MODEL"}
 SECRET = {"ai_api_key", "index_secret"}
 
 
@@ -84,6 +86,8 @@ def _validate(key: str, value):
             raise ValueError(f"OCR languages must be installed ones: {', '.join(sorted(have - {'osd'})) or 'none found'}")
     if key == "mail_time" and value and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", str(value).strip()):
         raise ValueError("mail_time must be a time like 02:30, or empty")
+    if key == "vision_ocr" and value not in ("off", "weak", "always"):
+        raise ValueError("vision_ocr must be off, weak or always")
     if key == "tax_year_start":
         from .taxpack import parse_start
         parse_start(value)
