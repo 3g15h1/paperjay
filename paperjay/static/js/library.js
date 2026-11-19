@@ -130,7 +130,7 @@ export async function show(view, { query }) {
     if (!results.length) {
       els.list.innerHTML = `<div class="card empty">${f.q || els.reset.hidden === false ? "No documents match. Try fewer words or clear the filters." : `Nothing here yet. <a href="/upload" style="color:var(--accent)">Add your first document</a>.`}</div>`;
     } else {
-      els.list.innerHTML = `<div class="docs ${layout === "rows" ? "rows" : ""} ${selecting ? "selecting" : ""}">${results.map((d) => swipeWrap(d.id, docCard(d, { picked: picked.has(d.id) }))).join("")}</div>`;
+      els.list.innerHTML = `<div class="docs ${layout === "rows" ? "rows" : ""} ${selecting ? "selecting" : ""}">${results.map((d) => swipeWrap(d.id, docCard(d, { picked: picked.has(d.id), hl: d.snippet ? f.q : "" }))).join("")}</div>`;
     }
     els.more.hidden = results.length >= total;
     els.bulk.hidden = !selecting;

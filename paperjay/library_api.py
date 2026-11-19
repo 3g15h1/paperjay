@@ -12,6 +12,7 @@
     POST   /api/documents/bulk                 {ids, action, value}
     POST   /api/documents/{id}/edit-pages      turn, remove, reorder and split pages (pageedit.py)
     POST   /api/documents/merge                {ids} join documents into one
+    GET    /api/documents/{id}/find?q=         where the words of a search are on its pages (findwords.py)
     GET    /api/labels/{kind}, POST …, PATCH /api/labels/{kind}/{id}, DELETE …, POST /api/labels/{kind}/merge
     GET    /api/views, POST …, DELETE /api/views/{id}   saved searches
     GET    /api/summary                        counts for the navigation
@@ -437,3 +438,18 @@ def merge_documents(request: Request, con: Con, user: User, payload: dict):
         raise HTTPException(400, str(e))
     st.paperjay["worker"].wake()
     return {"document": new_id}
+
+
+@router.get("/api/documents/{doc_id}/find")
+def find_words(request: Request, con: Con, doc_id: int, q: str = ""):
+    """Boxes around the words of a search on each page, for highlighting them (findwords.py)."""
+    from . import findwords
+    doc = _doc_or_404(Library(con), doc_id)
+    store = request.app.state.paperjay["store"]
+    if doc["archive_checksum"]:
+        pdf = store.path("archive", doc["checksum"], ".pdf")
+    elif doc["mime_type"] == "application/pdf":
+        pdf = store.path("originals", doc["checksum"], doc["original_ext"])
+    else:
+        return {"pages": [], "count": 0, "terms": []}
+    return findwords.find(pdf, findwords.terms_of(q))

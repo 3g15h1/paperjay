@@ -485,3 +485,8 @@ svg.i.chev { width: 16px; height: 16px; color: var(--faint); stroke-width: 2.2; 
 .pe-split { align-self: center; border: 1px dashed var(--line); background: none; color: var(--faint); border-radius: 8px; padding: 6px 4px; cursor: pointer; font-size: 12px; max-width: 70px; }
 .pe-split.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .walkbar { display: grid; margin: 0 0 12px; }
+/* search words marked on the page images (findwords.py) */
+.viewer .pg { position: relative; }
+.viewer .pg .hl { position: absolute; background: rgba(255, 213, 0, .38); border-radius: 2px; pointer-events: none; mix-blend-mode: multiply; padding: 0; }
+.foundbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+.foundbar a { color: var(--accent); }

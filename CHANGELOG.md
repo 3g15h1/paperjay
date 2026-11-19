@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.6
+
+- **The words you searched for are marked on the page.** Open a document from a Library search or from
+  an answer's sources and the words show in yellow right on the page images, so you see at once where
+  the policy number or the amount is. A line above the pages says how many there are and on which pages
+  (tap a page number to jump there); **Clear** takes the marks away. The Text tab marks them too.
+- Works on turned pages, and finds numbers however they're written (EM-4471-2290 or EM 4471 2290).
+
 ## 0.7.5
 
 - **Check documents one after another.** Open a document from **Review → Needs review** and a bar at the

@@ -198,9 +198,10 @@ export function statusChip(d) {
   if (d.needs_review) return `<span class="chip warn">Review</span>`;
   return "";
 }
-export function docCard(d, { picked = false } = {}) {
+export function docCard(d, { picked = false, hl = "" } = {}) {
   const meta = [d.correspondent, fmtDate(d.doc_date || (d.added_at || "").slice(0, 10)), d.document_type].filter(Boolean).join(" · ");
-  return `<a class="doc${picked ? " picked" : ""}" href="/documents/${d.id}" data-id="${d.id}">
+  // hl: the words searched for, marked on the document's pages when it opens
+  return `<a class="doc${picked ? " picked" : ""}" href="/documents/${d.id}${hl ? "?q=" + encodeURIComponent(hl) : ""}" data-id="${d.id}">
     <span class="sel"></span>
     <div class="thumb"><img loading="lazy" alt="" src="/api/documents/${d.id}/thumb" onerror="this.style.visibility='hidden'"></div>
     <div class="body"><div class="title">${esc(d.title)}</div><div class="meta">${esc(meta)}</div>

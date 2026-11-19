@@ -55,7 +55,7 @@ export async function show(view, { id, query }) {
       <button class="btn sm icon" id="moreBtn" title="More">${icon("more")}</button></div>
     <div class="docpage">
       <div><input class="title-edit" id="title" value="${esc(doc.title)}" aria-label="Title"><div class="faint small" id="sub" style="margin:2px 0 14px"></div>
-        <div id="walk"></div><div id="banner"></div><div class="viewer" id="viewer"></div></div>
+        <div id="walk"></div><div id="banner"></div><div id="found"></div><div class="viewer" id="viewer"></div></div>
       <div class="panel">
         <div class="seg" id="tabs"><button data-t="details">Details</button><button data-t="text">Text</button><button data-t="notes">Notes</button><button data-t="history">History</button></div>
         <div class="card" id="pane"></div>
@@ -117,9 +117,47 @@ export async function show(view, { id, query }) {
     if (!n) { els.viewer.innerHTML = `<div class="card skeleton" style="height:420px"></div>`; return; }
     const w = Math.min(1800, Math.round((els.viewer.clientWidth || 800) * (devicePixelRatio || 1) / 600) * 600 || 1200);
     els.viewer.innerHTML = Array.from({ length: n }, (_, i) =>
-      `<img loading="${i < 2 ? "eager" : "lazy"}" alt="Page ${i + 1}" src="/api/documents/${doc.id}/pages/${i + 1}?w=${w}&r=${doc.rev}">`).join("") +
+      `<div class="pg" data-n="${i + 1}"><img loading="${i < 2 ? "eager" : "lazy"}" alt="Page ${i + 1}" src="/api/documents/${doc.id}/pages/${i + 1}?w=${w}&r=${doc.rev}"></div>`).join("") +
       (doc.archive_checksum ? `<a class="btn ghost sm" href="/api/documents/${doc.id}/archive" target="_blank" rel="noopener">${icon("file")} Open the searchable PDF</a>` : "");
   }
+
+  // ---------- the words you searched for, marked on the pages (findwords.py) ----------
+  // ?hl= from Ask's sources, ?q= from a Library search
+  const hl = (query?.get("hl") || query?.get("q") || "").trim();
+  async function drawMarks() {
+    els.found.innerHTML = "";
+    if (!hl || doc.status !== "ready") return;
+    const r = await api(`/api/documents/${doc.id}/find?q=${encodeURIComponent(hl)}`, { quiet: true }).catch(() => null);
+    if (!r) return;
+    for (const p of r.pages) {
+      const pg = els.viewer.querySelector(`.pg[data-n="${p.n}"]`);
+      if (!pg) continue;
+      pg.querySelectorAll(".hl").forEach((m) => m.remove());
+      pg.insertAdjacentHTML("beforeend", p.boxes.map(([x0, y0, x1, y1]) =>
+        `<mark class="hl" style="left:${x0 * 100}%;top:${y0 * 100}%;width:${(x1 - x0) * 100}%;height:${(y1 - y0) * 100}%"></mark>`).join(""));
+    }
+    const pages = r.pages.map((p) => p.n);
+    els.found.innerHTML = `<div class="foundbar small">${r.count
+      ? `<span>${plural(r.count, "match", "matches")} for ${r.terms.map((t) => `“${esc(t)}”`).join(" ")}${pages.length > 1 || (doc.page_count || 1) > 1 ? ` on page${pages.length > 1 ? "s" : ""} ${pages.map((n) => `<a href="#" data-page="${n}">${n}</a>`).join(", ")}` : ""}</span>`
+      : `<span class="faint">${r.terms.length ? `No ${r.terms.map((t) => `“${esc(t)}”`).join(" ")} on the pages` : ""}</span>`}
+      <button type="button" class="btn ghost sm" data-clearhl>Clear</button></div>`;
+    els.found.onclick = (e) => {
+      const a = e.target.closest("[data-page]");
+      if (a) { e.preventDefault(); els.viewer.querySelector(`.pg[data-n="${a.dataset.page}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
+      if (e.target.closest("[data-clearhl]")) { els.viewer.querySelectorAll(".hl").forEach((m) => m.remove()); els.found.innerHTML = ""; history.replaceState(null, "", location.pathname); }
+    };
+    if (pages.length && pages[0] > 1) els.viewer.querySelector(`.pg[data-n="${pages[0]}"]`)?.scrollIntoView({ block: "start" });
+  }
+  const markText = (text) => {   // matched on the plain text, each piece escaped on its own
+    const terms = hl.toLowerCase().split(/[\s,;]+/).filter((t) => t.length >= 3).map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    if (!terms.length) return esc(text);
+    let out = "", last = 0;
+    for (const m of text.matchAll(new RegExp(`\\b(?:${terms.join("|")})`, "gi"))) {
+      out += esc(text.slice(last, m.index)) + "<mark>" + esc(m[0]) + "</mark>";
+      last = m.index + m[0].length;
+    }
+    return out + esc(text.slice(last));
+  };
 
   // ---------- details ----------
   async function drawDetails() {
@@ -201,7 +239,7 @@ export async function show(view, { id, query }) {
     els.tabs.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.t === tab));
     if (tab === "details") return drawDetails();
     if (tab === "text") {
-      els.pane.innerHTML = doc.content ? `<div class="ocrtext">${esc(doc.content.replace(/\f/g, "\n\n— next page —\n\n"))}</div>
+      els.pane.innerHTML = doc.content ? `<div class="ocrtext">${markText(doc.content.replace(/\f/g, "\n\n— next page —\n\n"))}</div>
         <div><button class="btn sm ghost" id="copyText">${icon("copy")} Copy text</button></div>` : `<div class="faint">No text was found${doc.status === "ready" ? "" : " yet"}.</div>`;
       const c = $("#copyText", els.pane); if (c) c.onclick = () => navigator.clipboard.writeText(doc.content).then(() => toast("Copied"));
       return;
@@ -277,12 +315,12 @@ export async function show(view, { id, query }) {
     const before = doc.status + doc.rev;
     doc = await api(`/api/documents/${doc.id}`);
     drawTop(); drawTab();
-    if (before !== doc.status + doc.rev) drawPages();
+    if (before !== doc.status + doc.rev) { drawPages(); drawMarks(); }
     const busy = doc.status === "pending" || doc.status === "processing";
     if (busy && !poll) poll = setInterval(reload, 2500);
     if (!busy && poll) { clearInterval(poll); poll = null; refreshCounts(); }
   }
-  drawTop(); drawPages(); drawTab(); drawWalk();
+  drawTop(); drawPages(); drawTab(); drawWalk(); drawMarks();
   if (doc.status === "pending" || doc.status === "processing") poll = setInterval(reload, 2500);
   return () => { clearInterval(poll); if (walkKeys) removeEventListener("keydown", walkKeys); };
 }

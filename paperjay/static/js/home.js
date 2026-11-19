@@ -95,7 +95,8 @@ export async function show(view, { query }) {
     els.sourcesWrap.hidden = !list.length;
     els.sources.innerHTML = list.map((s) => {
       const meta = [s.correspondent, fmtDate(s.created), s.type, s.category].filter(Boolean).join(" · ");
-      return `<a class="src" id="src-${s.n}" href="${esc(s.url)}"><div class="thumb"><span class="n">${s.n}</span><img loading="lazy" alt="" src="${esc(s.thumb)}" onerror="this.remove()"></div>
+      const hlq = (terms || []).slice(0, 8).join(",");
+      return `<a class="src" id="src-${s.n}" href="${esc(s.url + (hlq ? "?hl=" + encodeURIComponent(hlq) : ""))}"><div class="thumb"><span class="n">${s.n}</span><img loading="lazy" alt="" src="${esc(s.thumb)}" onerror="this.remove()"></div>
         <div class="b"><div class="t">${esc(s.title)}</div><div class="faint small">${esc(meta)}</div><div class="s">${highlight(s.snippet, terms)}</div>
         <div><button type="button" class="btn ghost sm" data-askdoc="${s.id}" data-title="${esc(s.title)}">Ask about this</button></div></div></a>`;
     }).join("");

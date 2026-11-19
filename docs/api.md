@@ -43,6 +43,7 @@ Server-Sent Events.
 | `GET /api/documents?q=&tags=&correspondent_id=&document_type_id=&date_from=&date_to=&sort=` | search and list |
 | `GET /api/documents/{id}`, `PATCH /api/documents/{id}` | one document; change title, date, labels |
 | `GET /api/documents/{id}/original` · `/archive` · `/thumb` · `/pages/{n}` | its files |
+| `GET /api/documents/{id}/find?q=` | where the words are on its pages: boxes as fractions of each page |
 | `POST /api/documents/{id}/notes` · `/trash` · `/restore` · `/reprocess` · `/analyze` | actions |
 | `POST /api/documents/{id}/edit-pages` | `{pages: [{n, rotate, keep}], split_after: [n]}`: turn, take out, reorder, split; returns the new `documents` (the old one goes to the trash) |
 | `POST /api/documents/merge` | `{ids}` in page order: join into one new document |
