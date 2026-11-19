@@ -85,7 +85,8 @@ DOCS = [
     ("receipt.jpg", page("Gadget Store", "Main Street · Sales receipt", [
         ("Order", "GS-118204"), ("Date", us(TODAY - timedelta(days=75))), "",
         ("Phone X Pro 256GB", "$999.00"), ("Protective case", "$39.00"), ("Sales tax", "$61.08"), "",
-        ("**", "Total                                      $1,099.08"), "", "Returns accepted within 30 days with receipt."], accent=(80, 80, 80)),
+        ("**", "Total                                      $1,099.08"), "", "Returns accepted within 30 days with receipt.",
+        "1-year limited manufacturer warranty."], accent=(80, 80, 80)),
      dict(title="Phone X Pro receipt", correspondent="Gadget Store", type="Receipt", tags=["Electronics"],
           card=dict(kind="receipt", category="shopping", total=1099.08, dates=[("issued", TODAY - timedelta(days=75))],
                     ids=[("order", "GS-118204")], summary="Receipt for a phone and case."))),
@@ -148,9 +149,19 @@ EXTRA_DOCS = [
           card=dict(kind="statement", category="finance", total=None, dates=[("issued", date(LAST, 2, 28))],
                     ids=[("account", "CU-0088 1203")], summary="Monthly checking account statement."))),
 ]
-# Older paper that the default keep rules say can go (for the shredding list)
+# Older paper that the default keep rules say can go (for the shredding list), and a dishwasher whose
+# two-year warranty ends next month (so its receipt is kept, and it shows under Coming up)
 OLD = TODAY.year - 2
+BOUGHT = TODAY - timedelta(days=730 - 34)
 EXTRA_DOCS += [
+    ("dishwasher.jpg", page("Home Appliance Outlet", "Sales receipt", [
+        ("Date", us(BOUGHT)), ("Order", "HAO-55120"), "",
+        ("Quiet dishwasher, stainless", "$649.00"), ("Delivery and installation", "$89.00"), ("Sales tax", "$45.39"), "",
+        ("**", "Total                                        $783.39"), "",
+        "2-year limited warranty on parts and labor.", "Keep this receipt as proof of purchase."], accent=(120, 70, 30)),
+     dict(title="Dishwasher receipt", correspondent="Home Appliance Outlet", type="Receipt", tags=["Home"],
+          card=dict(kind="receipt", category="shopping", total=783.39, dates=[("issued", BOUGHT)],
+                    ids=[("order", "HAO-55120")], summary="Receipt for a dishwasher with installation."))),
     ("acme old.jpg", page("Acme Energy", "Residential electric service", [
         ("Statement date", long(date(OLD, 3, 7))), ("Account number", "7730 1184 52"), "",
         ("Electric delivery", "$58.10"), ("Electric supply", "$66.25"), ("Taxes and fees", "$8.91"), "",

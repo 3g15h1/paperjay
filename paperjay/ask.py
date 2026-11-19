@@ -213,13 +213,15 @@ def make_headline(content: str) -> str:
 class Doc:
     """What answering needs to know about one document. Built from the database; `tags` are names."""
     __slots__ = ("id", "rev", "title", "created", "content", "correspondent", "document_type", "tags", "chash",
-                 "tf", "length", "_pieces", "headline", "modified", "topics", "series", "paper_no")
+                 "tf", "length", "_pieces", "headline", "modified", "topics", "series", "paper_no",
+                 "warranty_until")
 
     def __init__(self, row: dict, tags: list[str], topics: list[str] | None = None,
                  topic_words: dict | None = None):
         self.id = row["id"]
         self.rev = row["rev"]
         self.paper_no = row["paper_no"] if "paper_no" in row.keys() else None
+        self.warranty_until = row["warranty_until"] if "warranty_until" in row.keys() else None
         self.title = row["title"] or f"Document {self.id}"
         self.created = row["doc_date"] or (row["added_at"] or "")[:10]
         self.series = row["series_key"] if "series_key" in row.keys() else None
@@ -274,6 +276,7 @@ class Index:
         self.cards: dict[int, dict] = {}
         self.topic_words: dict[str, str] = {}
         self._cards_key = None
+        self.date_order = "MDY"
         self._lock = threading.Lock()
 
     def refresh(self, con: sqlite3.Connection) -> None:
@@ -285,6 +288,7 @@ class Index:
             changed = [i for i, rev in live.items() if i not in self.docs or self.docs[i].rev != rev]
             for i in gone:
                 self.df.subtract(self.docs.pop(i).tf.keys())
+            self.date_order = settings.get(con, "date_order")
             from . import topics as topics_mod
             topic_words = {t["name"]: t["words"] for t in topics_mod.all_topics(settings.get(con, "custom_topics"))}
             self.topic_words = topic_words
@@ -300,7 +304,7 @@ class Index:
                                      f"WHERE document_id IN ({marks})", ids):
                     doc_topics.setdefault(r[0], []).append(r[1])
                 for r in con.execute(
-                        "SELECT d.id, d.rev, d.title, d.doc_date, d.added_at, d.content, d.series_key, d.paper_no, "
+                        "SELECT d.id, d.rev, d.title, d.doc_date, d.added_at, d.content, d.series_key, d.paper_no, d.warranty_until, "
                         "c.name AS correspondent, "
                         "t.name AS document_type FROM documents d "
                         "LEFT JOIN correspondents c ON c.id = d.correspondent_id "
@@ -691,6 +695,8 @@ class Asker:
         if want is None:
             return None
         subject = self.subject_terms(own if own is not None else question)
+        if want == ("date", "warranty"):
+            return self.warranty_answer(r, subject)
         found = {}  # value -> (n, name, card, label)
         for n, doc, _ in r["llm_docs"]:
             card = self.card_for(doc)
@@ -728,6 +734,26 @@ class Asker:
         if want[0] == "id":
             return f"{label[0].rstrip(':').title()}: {value} [{n}] ({name})."
         return f"{name} total: {totals.money(value)} [{n}]."
+
+    def warranty_answer(self, r: dict, subject: list[str]) -> str | None:
+        """"When does the warranty on my phone end?" from warranty.py, when the documents the model would
+        read name exactly one warranty end."""
+        from . import warranty
+        found = {}
+        for n, doc, _ in r["llm_docs"]:
+            card = self.card_for(doc)
+            if subject and card and not self.card_is_about(card, doc, subject):
+                continue
+            w = warranty.end(doc.content, doc.created or None, doc.warranty_until, self.idx.date_order)
+            if w:
+                found.setdefault(w["until"], (n, doc))
+        if len(found) != 1:
+            return None
+        until, (n, doc) = next(iter(found.items()))
+        if until == warranty.LIFETIME:
+            return f"“{doc.title}” has a lifetime warranty [{n}]."
+        verb = "ended" if until < self.today.isoformat() else "ends"
+        return f"The warranty on “{doc.title}” {verb} on {_long_date(until)} [{n}]."
 
     def subject_terms(self, question: str) -> list[str]:
         """What the question is about ("car insurance", "passport"), without the words that say what's wanted."""
@@ -880,11 +906,14 @@ def _long_date(iso: str) -> str:
 _ID_WORDS = ("policy", "account", "invoice", "order", "member", "vin", "reference", "confirmation", "claim",
              "serial", "plate", "tracking", "customer", "group", "case")
 _INTENT_WORDS = {stem(w) for w in """expire expires expired expiration expiry renew renewal valid due pay payment
+warranty warranties guarantee end ends
 number numbers no policy account invoice order member vin reference confirmation claim serial plate tracking customer
 group case cost price total amount paid owe much""".split()}
 
 
 def fact_intent(q: str):
+    if re.search(r"\bwarrant\w*|\bguarantee\w*", q) and (DATE_Q.search(q) or re.search(r"\b(end|ends|run out|still|under)\b", q)):
+        return ("date", "warranty")
     if re.search(r"\b(expir\w*|renew\w*|valid (until|through|thru))\b", q):
         return ("date", "expires")
     if re.search(r"\bdue\b|\bpay(ment)? by\b", q) and DATE_Q.search(q):

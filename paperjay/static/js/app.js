@@ -16,6 +16,7 @@ route("/settings/:section", () => import("./settings.js"));
 route("/secure", () => import("./secure.js"));
 route("/taxpack", () => import("./taxpack.js"));
 route("/shred", () => import("./shred.js"));
+route("/warranties", () => import("./warranties.js"));
 route("/login", () => import("./login.js"));
 route("/setup", () => import("./setup.js"));
 

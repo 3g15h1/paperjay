@@ -196,8 +196,10 @@ def document(con: Con, doc_id: int):
     doc["processing"] = dict(job) if job else None
     from . import analyze
     doc["card"] = analyze.get_card(con, doc_id, doc["content"])
-    from . import keeping
+    from . import keeping, warranty
     doc["keeping"] = keeping.for_document(con, doc_id)
+    doc["warranty"] = warranty.end(doc["content"], doc["doc_date"], doc["warranty_until"],
+                                   settings.get(con, "date_order"))
     return doc
 
 

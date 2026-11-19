@@ -2,7 +2,8 @@
 
     GET  /api/ask/stream?q=…            streamed answer (Server-Sent Events): sources, stage, token…, done
     POST /api/ask                       the same as JSON (same shape as Paperless Ask's, for scripts)
-    GET  /api/upcoming                  due and expiry dates; `alerts` are the ones to notify about today
+    GET  /api/upcoming                  due and expiry dates and warranty ends; `alerts` are the ones to notify about today
+    GET  /api/warranties                every document with a warranty (warranty.py)
     GET  /calendar.ics                  the same as a calendar feed
     GET  /api/facts                     every fact card (to check what the AI read)
     POST /api/feedback, GET /api/feedback
@@ -150,7 +151,7 @@ def _upcoming(con, days: int, link) -> dict:
     ask.INDEX.refresh(con)
     s = settings.all_settings(con)
     return reminders.upcoming(ask.INDEX.docs.values(), ask.INDEX.cards, date.today(), days, s["done_tags"], link,
-                              s["alert_days"])
+                              s["alert_days"], s["date_order"])
 
 
 @router.get("/api/upcoming")
@@ -159,6 +160,32 @@ def upcoming(request: Request, con: Con, days: int | None = Query(None, ge=0, le
     base = str(request.base_url).rstrip("/")
     return _upcoming(con, days if days is not None else settings.get(con, "reminder_days"),
                      lambda i: f"{base}/documents/{i}")
+
+
+@router.get("/api/warranties")
+def warranties(con: Con):
+    """Every document with a warranty: running ones by the day they end, then lifetime ones, then ended."""
+    from . import warranty
+    ask.INDEX.refresh(con)
+    today = date.today().isoformat()
+    order = settings.get(con, "date_order")
+    items = []
+    for doc in ask.INDEX.docs.values():
+        w = warranty.end(doc.content, doc.created or None, doc.warranty_until, order)
+        if not w:
+            continue
+        card = ask.INDEX.cards.get(doc.id) or {}
+        lifetime = w["until"] == warranty.LIFETIME
+        items.append({"id": doc.id, "title": doc.title, "company": card.get("vendor") or doc.correspondent,
+                      "purchased": doc.created or None, "until": w["until"], "phrase": w["phrase"],
+                      "source": w["source"], "lifetime": lifetime, "ended": not lifetime and w["until"] < today,
+                      "days_left": None if lifetime else (date.fromisoformat(w["until"]) - date.today()).days,
+                      "amount": card.get("total"), "paper_no": doc.paper_no})
+    items.sort(key=lambda i: (i["ended"], i["lifetime"], i["until"] if not i["ended"] else "", i["id"]))
+    ended = [i for i in items if i["ended"]]
+    ended.sort(key=lambda i: i["until"], reverse=True)
+    return {"items": [i for i in items if not i["ended"]] + ended,
+            "running": sum(1 for i in items if not i["ended"])}
 
 
 @router.get("/calendar.ics")

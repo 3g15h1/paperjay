@@ -76,7 +76,7 @@ def manifest(con: sqlite3.Connection) -> dict:
             "sha256": d["checksum"], "searchable_pdf": archive, "pages": d["page_count"],
             "text": d["content"], "facts": analyze.get_card(con, doc_id, d["content"]),
             "paper_no": d["paper_no"], "keep_until": d["keep_until"], "shredded_at": d["shredded_at"],
-            "shredded_paper_no": d["shredded_paper_no"],
+            "shredded_paper_no": d["shredded_paper_no"], "warranty_until": d["warranty_until"],
         })
     return {
         "format": FORMAT, "version": VERSION, "exported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

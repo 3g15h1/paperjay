@@ -51,7 +51,9 @@ runs on your own hardware.
   spreadsheet too.
 - **Tells you what paper can go**: keep rules per kind of paper (tax papers seven years, bank statements one…),
   and a list of the papers on your shelf you can shred now ([docs/keeping-paper.md](docs/keeping-paper.md)).
-- **Remembers dates**: bills coming due and policies expiring, on the start page, in your phone's calendar,
+- **Tracks warranties**: read from your receipts ("2-year limited warranty"), listed in the Library, and
+  shown under Coming up before they end.
+- **Remembers dates**: bills coming due, policies expiring and warranties ending, on the start page, in your phone's calendar,
   and as JSON for Home Assistant.
 - **Gets out of your way**: one container, one data folder (SQLite, no Postgres or Redis), a plain-folder
   export you can open without PaperJay, an importer from Paperless-ngx, household accounts, an installable

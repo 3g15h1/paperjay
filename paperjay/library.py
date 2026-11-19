@@ -22,7 +22,7 @@ FILING_FIELDS = {"title", "doc_date", "correspondent_id", "document_type_id", "t
 PIPELINE_FIELDS = {"content", "status", "error", "page_count", "archive_checksum", "needs_review", "owner_id",
                    "suggestions", "category", "series_key", "simhash"}
 # How long to keep the paper, and whether it was shredded (keeping.py).
-KEEPING_FIELDS = {"keep_until", "shredded_at", "shredded_paper_no"}
+KEEPING_FIELDS = {"keep_until", "shredded_at", "shredded_paper_no", "warranty_until"}
 # Who made a change: a person, the AI, or the system (OCR's date and title guesses). The AI never
 # overrules a person; anyone overrules the system.
 SOURCES = {"person": "update", "ai": "ai_update", "system": "auto_update"}
@@ -156,6 +156,8 @@ class Library:
                 raise ValueError("paper number must be a whole number, 1 or more")
         if fields.get("keep_until") is not None:
             check_date(fields["keep_until"])
+        if fields.get("warranty_until") not in (None, "none"):
+            check_date(fields["warranty_until"])
         if "category" in fields:
             v = fields["category"]
             if v is not None and (not isinstance(v, str) or not v.strip() or len(v) > 40):
@@ -197,6 +199,8 @@ class Library:
                              (*sets.values(), doc_id))
             if changes.keys() & {"title", "content", "correspondent_id", "document_type_id", "tags"}:
                 self._reindex(doc_id)
+            elif "warranty_until" in changes:   # what Coming up and Ask read: let their index reload it
+                self.con.execute("UPDATE documents SET rev = rev + 1 WHERE id = ?", (doc_id,))
             if "correspondent_id" in changes:
                 self._sync_company_term(doc_id)
             if "content" in changes:  # too long for the log; record the size instead

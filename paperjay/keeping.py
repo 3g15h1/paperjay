@@ -72,7 +72,8 @@ def _facts(con: sqlite3.Connection, ids: list[int]) -> dict[int, dict]:
 def _rows(con: sqlite3.Connection, where: str = "", params=()) -> list[dict]:
     rows = [dict(r) for r in con.execute(
         "SELECT d.id, d.title, COALESCE(d.doc_date, substr(d.added_at, 1, 10)) AS day, d.category, d.paper_no, "
-        "d.keep_until, d.shredded_at, d.shredded_paper_no, c.name AS company, t.name AS type "
+        "d.keep_until, d.shredded_at, d.shredded_paper_no, d.warranty_until, d.content, d.doc_date, "
+        "c.name AS company, t.name AS type "
         "FROM documents d LEFT JOIN correspondents c ON c.id = d.correspondent_id "
         f"LEFT JOIN document_types t ON t.id = d.document_type_id WHERE d.deleted_at IS NULL {where} "
         "ORDER BY day, d.id", params)]
@@ -83,7 +84,11 @@ def _rows(con: sqlite3.Connection, where: str = "", params=()) -> list[dict]:
         marks = ", ".join("?" * len(ids))
         for r in con.execute(f"SELECT document_id, topic FROM document_topics WHERE document_id IN ({marks})", ids):
             topics.setdefault(r[0], set()).add(r[1])
+    from . import warranty
+    order = settings.get(con, "date_order")
     for r in rows:
+        w = warranty.end(r.pop("content"), r["doc_date"], r["warranty_until"], order)
+        r["warranty"] = w["until"] if w else None
         f = facts.get(r["id"], {})
         r["kind"] = _KIND_OF_TYPE.get((r["type"] or "").lower()) or f.get("kind")
         r["expires"] = f.get("expires")
@@ -92,9 +97,18 @@ def _rows(con: sqlite3.Connection, where: str = "", params=()) -> list[dict]:
 
 
 def decide(doc: dict, rules: list[dict]) -> dict:
-    """{until: YYYY-MM-DD (FOREVER = keep for good), why: the rule's name or "your choice", rule: index|None}"""
+    """{until: YYYY-MM-DD (FOREVER = keep for good), why: the rule's name or "your choice", rule: index|None}.
+    A receipt under warranty is kept at least until the warranty ends (the proof of purchase)."""
     if doc.get("keep_until"):
         return {"until": doc["keep_until"], "why": "your choice", "rule": None}
+    k = _by_rules(doc, rules)
+    w = doc.get("warranty")
+    if w and w > k["until"]:
+        return {"until": w, "why": "under warranty" if w != FOREVER else "lifetime warranty", "rule": k["rule"]}
+    return k
+
+
+def _by_rules(doc: dict, rules: list[dict]) -> dict:
     for i, rule in enumerate(rules):
         if doc.get("category") in rule["categories"] or (doc.get("kind") or "") in rule["kinds"] \
                 or doc.get("topics", set()) & set(rule["topics"]):

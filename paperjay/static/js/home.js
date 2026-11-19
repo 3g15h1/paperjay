@@ -262,7 +262,7 @@ export async function show(view, { query }) {
     els.upWrap.hidden = !up.items.length;
     els.upcoming.innerHTML = up.items.slice(0, 6).map((i) => `<a class="item ${i.days_left <= 3 ? "soon" : ""}" href="${esc(i.url)}">
       <span class="days">${i.days_left === 0 ? "Today" : `${i.days_left}<small>day${i.days_left === 1 ? "" : "s"}</small>`}</span>
-      <span class="main"><div class="t">${esc(i.vendor)} ${i.label === "due" ? "due" : "expires"}</div><div class="sub">${esc(fmtDate(i.date))} · ${esc(i.title)}</div></span>
+      <span class="main"><div class="t">${i.label === "warranty" ? `Warranty ends: ${esc(i.title)}` : `${esc(i.vendor)} ${i.label === "due" ? "due" : "expires"}`}</div><div class="sub">${esc(fmtDate(i.date))} · ${esc(i.label === "warranty" ? i.vendor : i.title)}</div></span>
       ${i.amount ? `<span class="num">${money(i.amount)}</span>` : ""}</a>`).join("");
     const attn = [];
     if (sum && sum.needs_review) attn.push(`<a class="item" href="/review"><span class="main"><div class="t">${plural(sum.needs_review, "document")} to check</div><div class="sub">The AI filed them but wasn't sure about something</div></span><span class="chip warn">Review</span></a>`);

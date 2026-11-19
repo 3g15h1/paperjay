@@ -60,7 +60,7 @@ title: Coming up
 content: >-
   {% for i in state_attr('sensor.paperjay_coming_up', 'items') or [] %}
   - **{{ 'Today' if i.days_left == 0 else i.days_left ~ ' d' }}** ·
-  [{{ i.vendor }} {{ 'due' if i.label == 'due' else 'expires' }}]({{ i.url }})
+  [{{ i.vendor }} {{ {'due': 'due', 'warranty': 'warranty ends'}.get(i.label, 'expires') }}]({{ i.url }})
   {{- ' · $%.2f' % i.amount if i.amount else '' }}
   {% else %}
   Nothing due in the next 60 days.
@@ -72,7 +72,7 @@ content: >-
 | Field | Example |
 |---|---|
 | `id`, `title`, `url` | the document, and a link that opens it |
-| `label` | `due` or `expires` |
+| `label` | `due`, `expires` or `warranty` (a purchase's warranty ends) |
 | `date`, `days_left` | `2026-10-22`, `14` |
 | `vendor`, `amount` | `Acme Energy`, `144.37` (bills only) |
 | `text` | a sentence ready for a notification |

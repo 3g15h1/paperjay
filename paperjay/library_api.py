@@ -58,7 +58,7 @@ def documents(con: Con, q: str = "", tags: str | None = None, correspondent_id: 
         raise HTTPException(400, str(e))
 
 
-EDITABLE = {"title", "doc_date", "correspondent_id", "document_type_id", "tags", "paper_no", "category", "keep_until"}
+EDITABLE = {"title", "doc_date", "correspondent_id", "document_type_id", "tags", "paper_no", "category", "keep_until", "warranty_until"}
 
 
 @router.patch("/api/documents/{doc_id}")

@@ -1,5 +1,5 @@
-"""'Coming up': expiry and due dates found in documents, for the start page, /api/upcoming and an
-iCal feed.
+"""'Coming up': expiry and due dates found in documents, and warranties that end (warranty.py), for the
+start page, /api/upcoming and an iCal feed.
 
 Dates come from two places: labelled dates found by pattern ("Expiration Date: 10/22/2026",
 "Payment due by Oct 5, 2025"), which needs no model, and the `due`/`expires` dates on fact cards.
@@ -7,6 +7,7 @@ Dates come from two places: labelled dates found by pattern ("Expiration Date: 1
 import re
 from datetime import date, datetime, timedelta, timezone
 
+from . import warranty
 from .textutil import ANSWER_DATE_RE, match_to_date, money
 
 # The labelled-date patterns live in rules.py (spec A.1: one source of truth, shared with the rule
@@ -27,11 +28,14 @@ def pattern_dates(text: str) -> set[tuple[str, date]]:
     return out
 
 
-def doc_dates(doc, card: dict | None) -> set[tuple[str, date]]:
+def doc_dates(doc, card: dict | None, order: str = "MDY") -> set[tuple[str, date]]:
     out = pattern_dates(doc.content)
     for d in (card or {}).get("dates", []):
         if d["label"] in ("due", "expires"):
             out.add((d["label"], date.fromisoformat(d["date"])))
+    w = warranty.end(doc.content, getattr(doc, "created", None) or None, getattr(doc, "warranty_until", None), order)
+    if w and w["until"] != warranty.LIFETIME:
+        out.add(("warranty", date.fromisoformat(w["until"])))
     return out
 
 
@@ -51,10 +55,11 @@ def _when(days: int, d: date) -> str:
 
 
 def upcoming(docs, cards, today: date, days: int, done_tags=("paid",), link=lambda doc_id: "",
-             alert_days=(14, 3, 1, 0)) -> dict:
-    """Due and expiry dates from today to today+days, soonest first, plus the ones to alert about today."""
+             alert_days=(14, 3, 1, 0), order: str = "MDY") -> dict:
+    """Due and expiry dates and warranty ends from today to today+days, soonest first, plus the ones to alert
+    about today."""
     done = {t.lower() for t in done_tags}
-    dated = [(doc, cards.get(doc.id), doc_dates(doc, cards.get(doc.id))) for doc in docs]
+    dated = [(doc, cards.get(doc.id), doc_dates(doc, cards.get(doc.id), order)) for doc in docs]
     latest_expiry: dict[str, date] = {}
     for doc, card, dates in dated:
         for label, when in dates:
@@ -75,6 +80,8 @@ def upcoming(docs, cards, today: date, days: int, done_tags=("paid",), link=lamb
             amount = (card or {}).get("total") if label == "due" else None
             if label == "due":
                 text = f"{name}: {money(amount) + ' ' if amount else ''}due {_when(left, when)}"
+            elif label == "warranty":
+                text = f"The warranty on {doc.title} ({name}) ends {_when(left, when)}"
             else:
                 what = {"insurance": "insurance", "id": "ID"}.get((card or {}).get("kind"), "document")
                 text = f"{name} {what} expires {_when(left, when)}"
@@ -115,7 +122,8 @@ def ics(items: list[dict], alert_days=(14, 3, 1, 0), host: str = "paperjay", now
     for i in items:
         d = date.fromisoformat(i["date"])
         summary = (f"Due: {i['vendor']}" + (f" {money(i['amount'])}" if i.get("amount") else "")
-                   if i["label"] == "due" else f"Expires: {i['vendor']}")
+                   if i["label"] == "due" else f"Warranty ends: {i['title']}" if i["label"] == "warranty"
+                   else f"Expires: {i['vendor']}")
         lines += ["BEGIN:VEVENT", f"UID:{i['id']}-{i['label']}-{d:%Y%m%d}@{host}", f"DTSTAMP:{stamp}",
                   f"DTSTART;VALUE=DATE:{d:%Y%m%d}", f"DTEND;VALUE=DATE:{d + timedelta(days=1):%Y%m%d}",
                   f"SUMMARY:{_ics_text(summary)}", f"DESCRIPTION:{_ics_text(i['title'] + (chr(10) + i['url'] if i['url'] else ''))}",

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.2
+
+- **Warranties.** PaperJay reads how long a purchase's warranty lasts from the receipt or invoice
+  ("2-year limited warranty", "Warranty: 24 months", "90 day guarantee", "warranty valid until
+  03/14/2027", "lifetime warranty") and counts it from the day you bought it. When a receipt mentions
+  several (the maker's year and an extended plan), the longest counts.
+- **Library → Warranties** lists every running warranty, the ones ending soonest first, with what it was
+  read from, and the ones that have ended.
+- **A warranty that ends soon shows under Coming up**, in your calendar feed and in Home Assistant
+  (`label` is `warranty`).
+- **Its receipt is kept until the warranty ends**, even when the keep rules would let it go sooner: it's
+  your proof of purchase.
+- **Ask knows them:** "When does the warranty on my dishwasher end?" gets an instant answer.
+- **Fix one on the document's page:** pick a date, a lifetime warranty, no warranty, or go back to what the
+  text says.
+- Changes the database (a new column for your own warranty dates); PaperJay backs it up first, as always.
+
 ## 0.7.1
 
 - **"Can I shred this?"** PaperJay now knows how long to keep each kind of paper: bank statements and

@@ -4,9 +4,26 @@ import { $, $$, api, esc, icon, fmtDate, ago, money, labels, tagChip, combo, ens
 
 export const nav = "library";
 const FIELD_NAMES = { title: "title", doc_date: "date", correspondent_id: "company", document_type_id: "type", tags: "tags",
-  paper_no: "paper number", keep_until: "keep the paper until", shredded_at: "paper shredded", shredded_paper_no: "shredded paper number", content: "text", status: "status", needs_review: "review", error: "note" };
+  paper_no: "paper number", keep_until: "keep the paper until", warranty_until: "warranty", shredded_at: "paper shredded", shredded_paper_no: "shredded paper number", content: "text", status: "status", needs_review: "review", error: "note" };
 const ACTIONS = { add: "Added", update: "Edited", ai_update: "Filed by the AI", auto_update: "Read by OCR", note: "Note added",
   trash: "Moved to the trash", restore: "Restored", purge: "Deleted" };
+
+// The warranty (warranty.py): what the text says or the person's own date, and a choice to change it.
+function warrantyField(doc) {
+  const w = doc.warranty, own = doc.warranty_until != null;
+  const today = new Date().toISOString().slice(0, 10);
+  const now = !w ? "No warranty" : w.until === "9999-12-31" ? "Lifetime warranty"
+    : `${w.until < today ? "Ended" : "Until"} ${fmtDate(w.until)}`;
+  const help = own ? "Your own setting for this document."
+    : w ? `Read from “${w.phrase}”, counted from the date of the document.` : "No warranty was found in the text.";
+  return `<label class="field"><span class="lab">Warranty</span><select class="input" id="f-warranty">
+      <option value="current" selected>${esc(now)}</option>
+      ${own ? `<option value="text">Read it from the text</option>` : ""}
+      <option value="date">Until a date…</option>
+      ${w?.until !== "9999-12-31" ? `<option value="lifetime">Lifetime warranty</option>` : ""}
+      ${w ? `<option value="none">No warranty</option>` : ""}</select>
+    <span class="help">${esc(help)} <a href="/warranties">All warranties</a></span></label>`;
+}
 
 // How long to keep the paper (keeping.py): the date and the rule behind it, a choice to change it, and
 // once it's shredded, when (with undo).
@@ -82,6 +99,7 @@ export async function show(view, { id }) {
         <div><button class="btn sm primary" data-act="reviewed">${icon("check")} Looks right</button></div></div>` : ""}
       <label class="field"><span class="lab">Date${aiMark("doc_date")}</span><input class="input" type="date" id="f-date" value="${esc(doc.doc_date || "")}"></label>
       <label class="field"><span class="lab">Paper no.${aiMark("paper_no")}</span><input class="input" type="number" min="1" step="1" id="f-paper" value="${doc.paper_no ?? ""}" placeholder="Not numbered"><span class="help">The number written on the paper original. Empty clears it.</span></label>
+      ${warrantyField(doc)}
       ${keepField(doc.keeping)}
       <label class="field"><span class="lab">Company${aiMark("correspondent_id")}</span><select class="input" id="f-corr"><option value="">—</option>${corrs.map((c) => `<option value="${c.id}" ${c.id === doc.correspondent_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}<option value="new">+ New company…</option></select></label>
       <label class="field"><span class="lab">Type${aiMark("document_type_id")}</span><select class="input" id="f-type"><option value="">—</option>${types.map((c) => `<option value="${c.id}" ${c.id === doc.document_type_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}<option value="new">+ New type…</option></select></label>
@@ -104,6 +122,18 @@ export async function show(view, { id }) {
         const v = prompt("Keep the paper until (YYYY-MM-DD)", doc.keeping?.until && doc.keeping.until !== "9999-12-31" ? doc.keeping.until : "");
         if (v && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return save({ keep_until: v.trim() });
         if (v) toast("Write the date like 2030-12-31");
+        drawDetails();
+      }
+    };
+    const warr = $("#f-warranty", els.pane);
+    if (warr) warr.onchange = async () => {
+      if (warr.value === "text") return save({ warranty_until: null });
+      if (warr.value === "none") return save({ warranty_until: "none" });
+      if (warr.value === "lifetime") return save({ warranty_until: "9999-12-31" });
+      if (warr.value === "date") {
+        const v = prompt("The warranty ends on (YYYY-MM-DD)", doc.warranty && doc.warranty.until !== "9999-12-31" ? doc.warranty.until : "");
+        if (v && /^\d{4}-\d{2}-\d{2}$/.test(v.trim())) return save({ warranty_until: v.trim() });
+        if (v) toast("Write the date like 2027-09-05");
         drawDetails();
       }
     };

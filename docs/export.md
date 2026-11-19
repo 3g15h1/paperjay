@@ -28,7 +28,7 @@ moves renamed ones, and with `--prune` deletes files of documents that no longer
     "original": "documents/2025/2025-08-14 Acme Energy bill [12].jpg", "original_name": "IMG_4012.jpg",
     "mime_type": "image/jpeg", "sha256": "…", "searchable_pdf": "documents/2025/…[12].searchable.pdf",
     "pages": 1, "text": "…the OCR text…", "paper_no": 124,
-    "keep_until": null, "shredded_at": null, "shredded_paper_no": null,
+    "keep_until": null, "shredded_at": null, "shredded_paper_no": null, "warranty_until": null,
     "facts": {"kind": "bill", "category": "utilities", "vendor": "Acme Energy", "total": 144.37,
               "dates": [{"label": "due", "date": "2025-09-05"}], "ids": [{"label": "account", "value": "7730 1184 52"}]}
   }]
@@ -38,5 +38,6 @@ moves renamed ones, and with `--prune` deletes files of documents that no longer
 `sha256` is the original file's checksum; `facts` is what the AI read (or `null`). `paper_no` is the
 number on the paper shelf; `keep_until` is a person's own keep-the-paper-until date (`9999-12-31` = for
 good, `null` = the keep rules decide); `shredded_at` and `shredded_paper_no` say when the paper was shredded
-and the number it had. Documents in the trash
+and the number it had. `warranty_until` is a person's own warranty end (`none` = no warranty, `null` =
+read from the text). Documents in the trash
 are not exported. `paperjay import-export <folder>` reads this format back.

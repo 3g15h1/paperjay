@@ -30,6 +30,9 @@ and on your situation (a business, a house you'll sell, an open tax question), s
 or adviser and change the rules to fit: change the years, what each rule covers and their order, add your
 own, or go back to the defaults.
 
+A receipt with a warranty is kept at least until the warranty ends (it's your proof of purchase), even
+when its rule would let it go sooner.
+
 To decide for one document, change **Keep the paper** on its page: keep it for good, until a date, or back
 to the rules.
 

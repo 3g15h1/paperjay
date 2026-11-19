@@ -46,7 +46,8 @@ Server-Sent Events.
 | `POST /api/documents/{id}/notes` · `/trash` · `/restore` · `/reprocess` · `/analyze` | actions |
 | `POST /api/documents/bulk` | `{ids, action, value}`: add_tags, remove_tags, set_correspondent, set_type, trash, … |
 | `GET/POST /api/labels/{tag,correspondent,document_type}` | labels; `PATCH`, `DELETE`, `POST …/merge` |
-| `GET /api/upcoming` · `GET /calendar.ics` | coming-up dates ([home-assistant.md](home-assistant.md)) |
+| `GET /api/upcoming` · `GET /calendar.ics` | coming-up dates and warranty ends ([home-assistant.md](home-assistant.md)) |
+| `GET /api/warranties` | every document with a warranty; `PATCH` a document's `warranty_until` (a date, `9999-12-31` lifetime, `none`, or `null` = read from the text) |
 | `GET /api/documents.csv?<the same filters>` or `?ids=1,2,3` | the list as a spreadsheet (CSV) |
 | `GET /api/taxpack?year=` · `GET /api/taxpack.zip?year=&categories=&topics=&tags=` | the tax pack ([tax-pack.md](tax-pack.md)) |
 | `GET /api/shred?all=` · `POST /api/documents/{id}/shredded` · `…/unshred` · `POST /api/shred/bulk {ids}` | paper to shred ([keeping-paper.md](keeping-paper.md)); `PATCH` a document's `keep_until` (`9999-12-31` = for good, `null` = the rules) |
