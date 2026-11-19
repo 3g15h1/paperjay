@@ -46,4 +46,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           notes=$(awk -v v="## ${GITHUB_REF_NAME#v}" '$0==v{f=1;next} /^## /{f=0} f' CHANGELOG.md)
-          gh release create "$GITHUB_REF_NAME" --title "PaperJay ${GITHUB_REF_NAME#v}" --notes "${notes:-See CHANGELOG.md}"
+          # only the highest version is "Latest": releases pushed together can finish in any order
+          git fetch --force --tags origin
+          highest=$(git tag -l 'v*.*.*' | sort -V | tail -1)
+          if [ "$GITHUB_REF_NAME" = "$highest" ]; then latest=true; else latest=false; fi
+          gh release create "$GITHUB_REF_NAME" --title "PaperJay ${GITHUB_REF_NAME#v}" --notes "${notes:-See CHANGELOG.md}" \
+            --latest="$latest"

@@ -13,9 +13,9 @@ from conftest import sign_in_client
 @pytest.fixture(autouse=True)
 def github(monkeypatch):
     def handler(request):
-        assert request.url.path == "/repos/3g15h1/paperjay/releases/latest"
-        return httpx.Response(200, json={"tag_name": "v9.1.0", "html_url": "https://github.com/x", "body": "New things",
-                                         "published_at": "2026-11-01T00:00:00Z"})
+        assert request.url.path == "/repos/3g15h1/paperjay/releases"
+        return httpx.Response(200, json=[{"tag_name": "v9.1.0", "html_url": "https://github.com/x", "body": "New things",
+                                          "published_at": "2026-11-01T00:00:00Z"}])
     monkeypatch.setattr(updates, "TRANSPORT", httpx.MockTransport(handler))
     updates._cache.clear()
 
@@ -62,8 +62,8 @@ def _counting(monkeypatch, status=200, tag="v9.1.0", seen=None):
         calls.append(request)
         if status != 200:
             return httpx.Response(status, json={"message": "Not Found"})
-        return httpx.Response(200, json={"tag_name": tag, "html_url": "https://github.com/x", "body": "",
-                                         "published_at": "2026-11-01T00:00:00Z"})
+        return httpx.Response(200, json=[{"tag_name": tag, "html_url": "https://github.com/x", "body": "",
+                                          "published_at": "2026-11-01T00:00:00Z"}])
     monkeypatch.setattr(updates, "TRANSPORT", httpx.MockTransport(handler))
     updates._cache.clear()
     return calls
@@ -175,3 +175,25 @@ def test_api_update_without_tag_and_notice(tmp_path, monkeypatch):
         sign_in_client(c, role="member")
         assert c.get("/api/update/notice").status_code == 403
         assert c.post("/api/update/dismiss", json={"tag": "v9.1.0"}).status_code == 403
+
+
+def test_highest_version_wins_whatever_github_marks_latest(monkeypatch):
+    # 0.6.4: three releases pushed together finished out of order, and GitHub marked v0.6.1 "latest"
+    def handler(request):
+        return httpx.Response(200, json=[
+            {"tag_name": "v0.6.1", "published_at": "2026-11-19T04:51:45Z", "body": "one"},     # published last
+            {"tag_name": "v0.6.3", "published_at": "2026-11-19T04:48:12Z", "body": "three"},
+            {"tag_name": "v0.7.0", "published_at": "2026-11-19T05:00:00Z", "draft": True},
+            {"tag_name": "v0.8.0-rc1", "published_at": "2026-11-19T05:00:00Z", "prerelease": True},
+            {"tag_name": "v0.6.2", "published_at": "2026-11-19T04:47:44Z", "body": "two"}])
+    monkeypatch.setattr(updates, "TRANSPORT", httpx.MockTransport(handler))
+    updates._cache.clear()
+    r = updates.check(force=True)
+    assert r["latest"] == "v0.6.3" and r["notes"] == "three"
+
+
+def test_no_published_release_yet(monkeypatch):
+    monkeypatch.setattr(updates, "TRANSPORT", httpx.MockTransport(lambda request: httpx.Response(200, json=[])))
+    updates._cache.clear()
+    r = updates.check(force=True)
+    assert r["error"] == "no published release yet" and not r.get("newer")

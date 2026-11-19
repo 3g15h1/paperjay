@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.4
+
+- **The Update button always offers the newest version.** It used to trust which release GitHub marked as
+  "latest", and when several releases were published at once GitHub could mark an older one (0.6.1 instead
+  of 0.6.3). PaperJay now looks at all published releases and picks the highest version. New releases are
+  also only marked "latest" on GitHub when they really are the newest.
+
 ## 0.6.3
 
 - **The start page says hello.** It now opens with "Hi" and your first name, today's date under it, and on a

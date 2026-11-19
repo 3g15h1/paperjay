@@ -93,7 +93,9 @@ def _ask_github() -> dict:
         headers["Authorization"] = f"Bearer {token}"
     try:
         with httpx.Client(transport=TRANSPORT, timeout=10, headers=headers) as c:
-            r = c.get(f"https://api.github.com/repos/{REPO}/releases/latest")
+            # every recent release, not /releases/latest: GitHub marks whichever release was published last
+            # as "latest", and releases built side by side can finish out of order (0.6.1 after 0.6.3)
+            r = c.get(f"https://api.github.com/repos/{REPO}/releases", params={"per_page": 30})
         if r.status_code == 404:
             result["error"] = "no published release yet" if token else \
                 "no published release found (a private repository needs a GitHub token in /etc/paperjay/github-token)"
@@ -101,7 +103,11 @@ def _ask_github() -> dict:
             result["error"] = "GitHub refused the request (check the token, or try again in an hour)"
         else:
             r.raise_for_status()
-            rel = r.json()
+            published = [x for x in r.json() if not x.get("draft") and not x.get("prerelease") and x.get("tag_name")]
+            if not published:
+                result["error"] = "no published release yet"
+                return result
+            rel = max(published, key=lambda x: _version_tuple(x["tag_name"]))
             result.update(latest=rel["tag_name"], url=rel.get("html_url"), notes=(rel.get("body") or "")[:4000],
                           published=rel.get("published_at"))
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as e:
