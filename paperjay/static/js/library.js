@@ -226,6 +226,10 @@ export async function show(view, { query }) {
         Printed numbers are reserved: the next upload number steps past them, and each can be claimed once.</div>
         <div class="row"><input class="input" id="plCount" type="number" value="30" min="1" max="1000" style="width:90px">
         <button class="btn" id="plBlank">Print blank labels</button><span class="help" id="plNext"></span></div></div>
+      <div class="field" style="margin:0">Separator sheets
+        <div class="help">Put one between documents and scan the whole stack at once: PaperJay makes a document of each.</div>
+        <div class="row"><a class="btn sm" href="/api/paper/separator.pdf?paper=letter" target="_blank" rel="noopener">Letter</a>
+          <a class="btn sm" href="/api/paper/separator.pdf?paper=a4" target="_blank" rel="noopener">A4</a></div></div>
       <p class="help" style="margin:0">The codes hold PaperJay's secure address when one is set up, otherwise the address
       this page was opened with — those codes then only open PaperJay from devices on your home network.
       To make codes that work from anywhere, open PaperJay at its secure address and print from there.</p>

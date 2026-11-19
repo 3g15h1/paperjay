@@ -103,3 +103,30 @@ def build(labels: list[dict], layout: str) -> bytes:
         y = fy + (slot // spec["cols"]) * py
         _draw_label(pdf, lab, x, y, lw, lh, big=(layout != "5160"))
     return bytes(pdf.output())
+
+
+def separator(paper: str = "letter", copies: int = 1) -> bytes:
+    """Separator sheets (barcodes.py): put one between documents and scan the stack as one; PaperJay splits
+    it there and leaves the sheet out. paper: letter or a4."""
+    from .barcodes import SEPARATOR
+    pw, ph = (215.9, 279.4) if paper == "letter" else (210.0, 297.0)
+    pdf = FPDF(unit="mm", format=(pw, ph))
+    pdf.set_auto_page_break(False)
+    buf = io.BytesIO()
+    segno.make(SEPARATOR, error="h").save(buf, kind="png", scale=20, border=2)
+    png = buf.getvalue()
+    for _ in range(max(1, min(copies, 50))):
+        pdf.add_page()
+        size = 110
+        pdf.set_font("helvetica", "B", 26)
+        pdf.set_xy(0, 28)
+        pdf.cell(pw, 12, "PaperJay separator", align="C")
+        pdf.set_font("helvetica", "", 13)
+        pdf.set_xy(20, 44)
+        pdf.multi_cell(pw - 40, 7, "Put this sheet between two documents and scan the whole stack in one go. "
+                                   "PaperJay starts a new document after it and leaves this sheet out.", align="C")
+        pdf.image(io.BytesIO(png), x=(pw - size) / 2, y=78, w=size, h=size)
+        pdf.set_font("helvetica", "", 10)
+        pdf.set_xy(0, 78 + size + 8)
+        pdf.cell(pw, 6, "Reuse it as often as you like. Keep it flat and clean so the code can be read.", align="C")
+    return bytes(pdf.output())

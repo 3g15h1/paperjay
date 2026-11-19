@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.9
+
+- **Scan a whole stack at once.** Print a separator sheet (Settings → Paper shelf, or Print labels in the
+  Library), put one between documents and scan the stack as one PDF. PaperJay makes one document of each
+  and leaves the separator pages out; the scanned stack goes to the Trash. Tags, company and type you gave
+  the upload go to every part.
+- **Blank labels number the document by themselves.** Stick one of the blank labels you printed ahead of
+  time on the first page, scan it, and the document gets that paper number.
+- Both are on by default and can be turned off in Settings → Paper shelf. They look at PDFs of up to 200
+  pages. New guide: [the paper shelf](docs/paper-shelf.md).
+
 ## 0.7.8
 
 - **Your own fields.** Settings → Your own fields: add the things you want on your documents, like a

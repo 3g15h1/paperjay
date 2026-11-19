@@ -27,7 +27,7 @@ export const SECTIONS = [
   { key: "filing", color: "pink", icon: "redo", title: "Filing", sub: "Re-file every document after you've tidied up", admin: true },
   { key: "fields", color: "teal", icon: "rows", title: "Your own fields", sub: "Things you want on every document, like a policy number or a licence plate", admin: true },
   { key: "keeping", color: "red", icon: "trash", title: "Keeping paper", sub: "How long to keep each kind of paper before it can be shredded", admin: true },
-  { key: "paper", color: "amber", icon: "archive", title: "Paper shelf", sub: "Number the paper originals you keep", admin: true },
+  { key: "paper", color: "amber", icon: "archive", title: "Paper shelf", sub: "Number the paper originals you keep, and scan stacks with separator sheets", admin: true },
   { key: "email", color: "orange", icon: "mail", title: "Email", sub: "Collect bills and statements that arrive by email", admin: true },
   { key: "appearance", color: "blue", icon: "sun", title: "Appearance", sub: "Light or dark" },
   { key: "updates", color: "green", icon: "download", title: "Updates", sub: "New versions of PaperJay with fixes and new features", admin: true },
@@ -219,6 +219,9 @@ export async function show(view, params) {
     <p class="sec-desc">Number the paper originals you keep, so a document in PaperJay points at a sheet on the shelf — and the sheet points back.</p>
     <form class="card pad" id="paperForm" style="display:grid;gap:16px">
       <label class="check"><input type="checkbox" name="paper_numbers"><span>Number the paper I keep<div class="help">Uploading and scanning then offer “Keeping the paper?” with the next free number. Write it on the original (or print labels from the Library — selected documents, or a sheet of numbers ahead of time). Find a sheet by typing its number, like #124, in the Library search or in Ask.</div></span></label>
+      <label class="check"><input type="checkbox" name="barcodes"><span>Read separator sheets and labels when scanning<div class="help">Scan a whole stack of documents in one go with a separator sheet between them, and PaperJay makes one document of each (the separator pages are left out). A blank label you printed ahead of time, stuck on the first page, gives the document its number.</div></span></label>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><a class="btn sm" href="/api/paper/separator.pdf?paper=letter" target="_blank" rel="noopener">${icon("download")} Separator sheet (Letter)</a>
+        <a class="btn sm" href="/api/paper/separator.pdf?paper=a4" target="_blank" rel="noopener">${icon("download")} Separator sheet (A4)</a></div>
       <div><button class="btn primary">Save</button></div>
     </form></div>`,
     fields: () => `<div class="section"><div class="h"><h2>Your own fields</h2></div>
@@ -480,9 +483,10 @@ export async function show(view, params) {
   if (sec === "paper") {
     const paperF = els.paperForm;
     paperF.elements.paper_numbers.checked = !!s.paper_numbers;
+    paperF.elements.barcodes.checked = s.barcodes !== false;
     paperF.onsubmit = async (e) => {
       e.preventDefault();
-      Object.assign(s, await api("/api/settings", { method: "PUT", body: { paper_numbers: paperF.elements.paper_numbers.checked } }));
+      Object.assign(s, await api("/api/settings", { method: "PUT", body: { paper_numbers: paperF.elements.paper_numbers.checked, barcodes: paperF.elements.barcodes.checked } }));
       toast("Saved");
     };
   }

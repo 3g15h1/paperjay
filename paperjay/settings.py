@@ -46,6 +46,7 @@ DEFAULTS = {
     # the names their papers use (a person can have several); words are what others call them;
     # user_ids links a person to a PaperJay account ("my" = them)
     "duplicate_detection": "review",
+    "barcodes": True,        # 0.7.9: split scanned stacks at separator sheets, read paper numbers from labels
     "paper_numbers": False,  # Phase D: number the paper originals — offered at upload/scan, found by #n, printed as labels  # near-duplicates flag for review; the B.3 gate passed on the
     # 0.3.1 acceptance evidence (zero false flags on the 36-document snapshot and on the
     # synthetic library, whose two planted copies were both caught). "log" only records.

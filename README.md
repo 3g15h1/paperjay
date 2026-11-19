@@ -90,7 +90,7 @@ default model on a CPU; a GPU makes it fast).
 
 - [Installing](docs/install.md) · [Choosing an AI model](docs/ai-models.md) · [Backups](docs/backups.md)
 - [Moving from Paperless-ngx](docs/migrate-from-paperless.md) · [Phones: camera, share sheet, shortcuts, calendar](docs/phone.md) · [Email](docs/email.md)
-- [The tax pack](docs/tax-pack.md) · [Keeping and shredding paper](docs/keeping-paper.md) · [AI assistants (MCP)](docs/mcp.md) · [Home Assistant](docs/home-assistant.md) · [Export format](docs/export.md) · [API](docs/api.md)
+- [The paper shelf: numbers, labels, separator sheets](docs/paper-shelf.md) · [The tax pack](docs/tax-pack.md) · [Keeping and shredding paper](docs/keeping-paper.md) · [AI assistants (MCP)](docs/mcp.md) · [Home Assistant](docs/home-assistant.md) · [Export format](docs/export.md) · [API](docs/api.md)
 
 ## How it compares
 
@@ -104,7 +104,8 @@ default model on a CPU; a GPU makes it fast).
 | Mail import | yes | yes | via Paperless |
 | Works with AI assistants (MCP), with per-key permissions | built in | not built in (community add-ons) | not built in |
 | Custom fields (filled from the text) | yes | yes | via Paperless |
-| Workflows, barcode splitting, per-document permissions | not yet | **yes** | via Paperless |
+| Barcode separator sheets, ASN labels | yes | yes | via Paperless |
+| Workflows, per-document permissions | not yet | **yes** | via Paperless |
 
 Paperless-ngx is the mature, feature-rich choice for large or shared archives with complex rules. PaperJay
 aims at households: fewer moving parts, filing that mostly happens by itself, and answers instead of

@@ -55,5 +55,6 @@ Server-Sent Events.
 | `GET /api/warranties` | every document with a warranty; `PATCH` a document's `warranty_until` (a date, `9999-12-31` lifetime, `none`, or `null` = read from the text) |
 | `GET /api/documents.csv?<the same filters>` or `?ids=1,2,3` | the list as a spreadsheet (CSV) |
 | `GET /api/taxpack?year=` · `GET /api/taxpack.zip?year=&categories=&topics=&tags=` | the tax pack ([tax-pack.md](tax-pack.md)) |
+| `GET /api/paper/separator.pdf?paper=letter\|a4&copies=` | separator sheets ([paper-shelf.md](paper-shelf.md)) |
 | `GET /api/shred?all=` · `POST /api/documents/{id}/shredded` · `…/unshred` · `POST /api/shred/bulk {ids}` | paper to shred ([keeping-paper.md](keeping-paper.md)); `PATCH` a document's `keep_until` (`9999-12-31` = for good, `null` = the rules) |
 | `GET /api/summary` · `GET /api/ai/status` · `GET /healthz` | counts and health |

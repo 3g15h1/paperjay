@@ -8,6 +8,7 @@
         &layout=5160      5160 (30/page, Letter) | 7160 (21/page, A4) | single62 (one 62 mm label)
         &base=https://…   address the QR codes hold; default: the Secure (HTTPS) address when
                           one is set up, else the address this was requested from
+    GET /api/paper/separator.pdf?paper=letter|a4&copies=   separator sheets (barcodes.py)
     GET  /api/shred?all=              paper past its keep-until date (keeping.py)
     POST /api/documents/{id}/shredded the paper was shredded (frees its shelf number); …/unshred undoes it
     POST /api/shred/bulk              {ids} several at once
@@ -42,6 +43,15 @@ def _base_url(request: Request) -> str:
         except Exception:
             pass
     return str(request.base_url)
+
+
+@router.get("/api/paper/separator.pdf")
+def separator_sheet(paper: str = "letter", copies: int = Query(1, ge=1, le=50)):
+    """Separator sheets for scanning a stack of documents in one go (barcodes.py)."""
+    if paper not in ("letter", "a4"):
+        raise HTTPException(400, "paper is letter or a4")
+    return Response(labels_pdf.separator(paper, copies), media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="paperjay-separator.pdf"'})
 
 
 @router.get("/api/paper-labels.pdf")
