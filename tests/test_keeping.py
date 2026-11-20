@@ -184,3 +184,16 @@ def test_export_keeps_keeping(tmp_path, con, store, add_doc, lib):
     row = con2.execute("SELECT keep_until, shredded_at, shredded_paper_no FROM documents").fetchone()
     assert tuple(row) == ("2030-01-01", "2026-01-01T00:00:00Z", 4)
     assert papers.next_free(con2) == 5
+
+
+def test_count_is_cached_but_follows_changes(con, add_doc, lib):
+    """The start page asks every 30 s: the count is reused until something changes (review before 0.8.2)."""
+    doc_id = _doc(con, add_doc, lib, "Electric", "2020-03-07", "utilities", paper_no=3)
+    assert keeping.count_ready(con, TODAY) == 1
+    assert keeping.count_ready(con, TODAY) == 1
+    lib.update(doc_id, shredded_at="2026-11-19T10:00:00Z", shredded_paper_no=3, paper_no=None)
+    assert keeping.count_ready(con, TODAY) == 0
+    _doc(con, add_doc, lib, "Water", "2020-04-07", "utilities", paper_no=4)
+    assert keeping.count_ready(con, TODAY) == 1
+    settings.save(con, {"keep_rules": []})
+    assert keeping.count_ready(con, TODAY) == 0

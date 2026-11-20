@@ -129,3 +129,27 @@ def test_separator_sheet_pdf(tmp_path):
     with pikepdf.open(p) as pdf:
         assert len(pdf.pages) == 3 and round(float(pdf.pages[0].mediabox[2])) == 595
     assert barcodes.page_codes(p, pages=1) == [[barcodes.SEPARATOR]]
+
+
+def test_a_failed_split_takes_its_parts_back(env, monkeypatch):
+    """Review before 0.8.2: a split that fails halfway leaves no parts behind and looks again on the retry."""
+    con, store, add, run, read = env
+    lib = Library(con)
+    stack_id = add(stack((600,), "SEP", (610,), "SEP", (620,)), paper_next=True)
+    real, calls = intake.ingest, []
+
+    def flaky(*a, **kw):
+        if kw.get("source") == "split" and calls:
+            raise OSError("disk full")
+        if kw.get("source") == "split":
+            calls.append(1)
+        return real(*a, **kw)
+    monkeypatch.setattr(intake, "ingest", flaky)
+    with pytest.raises(OSError):
+        run(stack_id)
+    assert con.execute("SELECT COUNT(*) FROM documents").fetchone()[0] == 1
+    assert lib.get(stack_id)["paper_no"] == 1 and not lib.get(stack_id)["deleted_at"]
+    monkeypatch.setattr(intake, "ingest", real)
+    run(stack_id)                                              # the retry splits it properly
+    assert lib.get(stack_id)["deleted_at"]
+    assert con.execute("SELECT COUNT(*) FROM documents WHERE deleted_at IS NULL").fetchone()[0] == 3

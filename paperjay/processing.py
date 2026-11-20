@@ -143,16 +143,27 @@ def _barcodes(con, store: FileStore, config: Config, lib: Library, doc: dict, or
         lib.update(doc["id"], by="system", paper_no=None)
     tags = [t["id"] for t in doc["tags"]]
     made = []
-    with pikepdf.open(original) as pdf:
-        for i, pages in enumerate(stretches):
-            n = barcodes.paper_number(codes[pages[0]]) or (stack_paper if i == 0 else None)
-            up = intake.ingest(con, store, io.BytesIO(_pdf_bytes(pdf, [(p, 0) for p in pages])),
-                               doc["original_name"], source="split", max_bytes=config.max_upload_bytes,
-                               user_id=doc["owner_id"], tag_ids=tags, correspondent_id=doc["correspondent_id"],
-                               document_type_id=doc["document_type_id"],
-                               paper_no=n if n is not None and free(n) else None)
-            if up.outcome == "accepted":
-                made.append(up.document_id)
+    try:
+        with pikepdf.open(original) as pdf:
+            for i, pages in enumerate(stretches):
+                n = barcodes.paper_number(codes[pages[0]]) or (stack_paper if i == 0 else None)
+                up = intake.ingest(con, store, io.BytesIO(_pdf_bytes(pdf, [(p, 0) for p in pages])),
+                                   doc["original_name"], source="split", max_bytes=config.max_upload_bytes,
+                                   user_id=doc["owner_id"], tag_ids=tags, correspondent_id=doc["correspondent_id"],
+                                   document_type_id=doc["document_type_id"],
+                                   paper_no=n if n is not None and free(n) else None)
+                if up.outcome == "accepted":
+                    made.append(up.document_id)
+    except Exception:
+        # all or nothing: take the parts back, give the number back, and look again on the retry
+        for part in made:
+            lib.trash(part)
+            store.remove(*lib.purge(part))
+        if stack_paper is not None:
+            lib.update(doc["id"], by="system", paper_no=stack_paper)
+        with transaction(con):
+            con.execute("DELETE FROM audit_log WHERE document_id = ? AND action = 'barcodes'", (doc["id"],))
+        raise
     if not made:
         if stack_paper is not None:
             lib.update(doc["id"], by="system", paper_no=stack_paper)

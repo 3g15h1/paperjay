@@ -179,7 +179,8 @@ def write_csv(rows: list[list], header: list[str]) -> bytes:
 
 
 def folder_name(category: str) -> str:
-    return (category or "other").replace("_", " ").title()
+    # a household's own topic can be named anything: never a path ("../x", "a/b") inside the zip
+    return safe_name((category or "other").replace("_", " ").title(), 60).replace("..", "")
 
 
 def build_zip(con: sqlite3.Connection, store: FileStore, out: Path, year: int, categories=(), topics=(),

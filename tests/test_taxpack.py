@@ -156,3 +156,10 @@ def test_limited_keys_and_readonly(tmp_path):
         c.headers["Authorization"] = f"Token {key}"
         assert c.get("/api/taxpack").status_code == 403       # like the full export: no key may download
         assert c.get("/api/documents.csv").status_code == 403
+
+
+def test_zip_folders_are_never_paths():
+    """Review before 0.8.2: a household topic named "../x" or "a/b" must stay a folder inside the zip."""
+    for name in ("../../etc", "a/b", "..", "c:\\x"):
+        folder = taxpack.folder_name(name)
+        assert "/" not in folder and "\\" not in folder and ".." not in folder and folder

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.2
+
+Fixes from a last review of 0.7 and 0.8:
+
+- **A tax pack never puts files outside its folder.** A topic of your own named with a slash or dots could
+  make a folder name in the zip that pointed elsewhere when unpacked.
+- **Splitting a scanned stack is all or nothing.** If something went wrong halfway (a full disk), the parts
+  already made stayed and the retry read the whole stack as one document beside them. Now the parts are taken
+  back and the retry splits it properly.
+- **The start page asks less work of the server.** The "papers you can shred" count is only worked out again
+  when something changed, instead of every 30 seconds for every open page; very large libraries no longer hit
+  a database limit there.
+- **Docker: `latest` always means the newest release.** When several releases were published together, the
+  image built last took the `latest` (and `0.8`) tag, which could be an older version.
+
 ## 0.8.1
 
 - **Handwriting and bad photos, read by the AI.** With a vision model on your AI program (for example

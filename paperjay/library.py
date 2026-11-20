@@ -21,6 +21,7 @@ FILING_FIELDS = {"title", "doc_date", "correspondent_id", "document_type_id", "t
 # Fields the processing pipeline sets.
 PIPELINE_FIELDS = {"content", "status", "error", "page_count", "archive_checksum", "needs_review", "owner_id",
                    "suggestions", "category", "series_key", "simhash"}
+CHANGES = 0   # counts document changes in this process (see _audit)
 # How long to keep the paper, and whether it was shredded (keeping.py).
 KEEPING_FIELDS = {"keep_until", "shredded_at", "shredded_paper_no", "warranty_until"}
 # Who made a change: a person, the AI, or the system (OCR's date and title guesses). The AI never
@@ -757,5 +758,7 @@ class Library:
                          (doc_id, row["title"], "\n".join(m for m in meta if m), row["content"] or ""))
 
     def _audit(self, user_id: int | None, action: str, doc_id: int | None, detail: dict) -> None:
+        global CHANGES
+        CHANGES += 1   # every change to a document passes here: cheap "has anything changed?" for caches
         self.con.execute("INSERT INTO audit_log(user_id, action, document_id, detail) VALUES (?, ?, ?, ?)",
                          (user_id, action, doc_id, json.dumps(detail, ensure_ascii=False, default=str)))

@@ -51,14 +51,24 @@ def _add_years(d: date, years: int) -> date:
         return d.replace(year=d.year + years, day=28)
 
 
+def _chunks(ids: list[int], size: int = 500):
+    for i in range(0, len(ids), size):
+        yield ids[i:i + size]
+
+
 def _facts(con: sqlite3.Connection, ids: list[int]) -> dict[int, dict]:
     """Per document: its kind and latest expiry date, from the stored cards."""
     out: dict[int, dict] = {}
     if not ids:
         return out
-    marks = ", ".join("?" * len(ids))
-    for r in con.execute(f"SELECT document_id, source, card FROM facts WHERE document_id IN ({marks}) "
-                         "ORDER BY CASE source WHEN 'rules' THEN 0 WHEN 'library' THEN 1 ELSE 2 END", ids):
+    rows = []
+    for chunk in _chunks(ids):   # SQLite caps how many values one query may carry
+        marks = ", ".join("?" * len(chunk))
+        rows += con.execute(f"SELECT document_id, source, card FROM facts WHERE document_id IN ({marks}) "
+                            "ORDER BY CASE source WHEN 'rules' THEN 0 WHEN 'library' THEN 1 ELSE 2 END",
+                            chunk).fetchall()
+    rows.sort(key=lambda r: {"rules": 0, "library": 1}.get(r["source"], 2))
+    for r in rows:
         card = json.loads(r["card"])
         f = out.setdefault(r["document_id"], {"kind": None, "expires": None})
         if card.get("kind") and card["kind"] != "other":
@@ -80,9 +90,9 @@ def _rows(con: sqlite3.Connection, where: str = "", params=()) -> list[dict]:
     ids = [r["id"] for r in rows]
     facts = _facts(con, ids)
     topics: dict[int, set] = {}
-    if ids:
-        marks = ", ".join("?" * len(ids))
-        for r in con.execute(f"SELECT document_id, topic FROM document_topics WHERE document_id IN ({marks})", ids):
+    for chunk in _chunks(ids):
+        marks = ", ".join("?" * len(chunk))
+        for r in con.execute(f"SELECT document_id, topic FROM document_topics WHERE document_id IN ({marks})", chunk):
             topics.setdefault(r[0], set()).add(r[1])
     from . import warranty
     order = settings.get(con, "date_order")
@@ -147,5 +157,18 @@ def ready(con: sqlite3.Connection, today: date | None = None, shelf_only: bool =
     return out
 
 
+_COUNT: dict = {}
+COUNT_FOR = 300   # seconds; cards and topics change without a document edit, so look again now and then
+
+
 def count_ready(con: sqlite3.Connection, today: date | None = None) -> int:
-    return len(ready(con, today))
+    """For the start page and Settings, asked every 30 seconds by each open page: worked out again when a
+    document or a setting changed, the day did, or after a few minutes."""
+    import time
+    from . import library
+    today = today or date.today()
+    key = (con.execute("PRAGMA database_list").fetchone()[2], library.CHANGES, today.isoformat(),
+           json.dumps(settings.get(con, "keep_rules")), settings.get(con, "date_order"))
+    if _COUNT.get("key") != key or time.monotonic() - _COUNT.get("at", 0) > COUNT_FOR:
+        _COUNT.update(key=key, n=len(ready(con, today)), at=time.monotonic())
+    return _COUNT["n"]

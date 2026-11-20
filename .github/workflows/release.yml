@@ -19,14 +19,25 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # releases pushed together build in any order: only the highest version may move "latest", and only
+      # the highest of its series may move "0.8" (the GitHub release below does the same for "Latest")
+      - name: Which moving tags this release may take
+        id: rank
+        run: |
+          git fetch --force --tags origin
+          v="$GITHUB_REF_NAME"
+          highest=$(git tag -l 'v*.*.*' | sort -V | tail -1)
+          series=$(git tag -l "$(echo "$v" | cut -d. -f1-2).*" | sort -V | tail -1)
+          echo "latest=$([ "$v" = "$highest" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "series=$([ "$v" = "$series" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: docker/metadata-action@v5
         id: meta
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.rank.outputs.series }}
+            type=raw,value=latest,enable=${{ steps.rank.outputs.latest }}
       - uses: docker/build-push-action@v6
         with:
           context: .
